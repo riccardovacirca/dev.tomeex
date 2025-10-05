@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${artifactId} API</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .endpoint { background: #f5f5f5; padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .method { font-weight: bold; color: #fff; padding: 2px 6px; border-radius: 3px; }
+        .get { background: #61affe; }
+        .post { background: #49cc90; }
+        code { background: #f1f1f1; padding: 2px 4px; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <h1>${artifactId} API</h1>
+    <p>RESTful API for ${artifactId} with database support</p>
+    
+    <h2>Available Endpoints</h2>
+    
+    <div class="endpoint">
+        <span class="method get">GET</span> <code>/api/items</code>
+        <p>Get all items</p>
+    </div>
+    
+    <div class="endpoint">
+        <span class="method get">GET</span> <code>/api/items/{id}</code>
+        <p>Get item by ID</p>
+    </div>
+    
+    <div class="endpoint">
+        <span class="method post">POST</span> <code>/api/items</code>
+        <p>Create new item</p>
+    </div>
+    
+    <h2>Example Usage</h2>
+    
+    <h3>Get All Items:</h3>
+    <pre><code>curl http://localhost:9292/${artifactId}/api/items</code></pre>
+    
+    <h3>Create Item:</h3>
+    <pre><code>curl -X POST http://localhost:9292/${artifactId}/api/items \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Sample Item","description":"This is a sample item"}'</code></pre>
+    
+    <h2>Database Type</h2>
+    <p>Configured for: <strong>${dbType}</strong></p>
+    
+    <h2>Features</h2>
+    <ul>
+        <li>✅ Database connectivity with JDBI</li>
+        <li>✅ RESTful API endpoints</li>
+        <li>✅ JSON request/response</li>
+        <li>✅ CORS enabled for development</li>
+        <li>✅ Connection pooling</li>
+        <li>✅ Error handling</li>
+    </ul>
+</body>
+</html>

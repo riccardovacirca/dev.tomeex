@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Microservice Architecture Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c5aa0;
+            border-bottom: 2px solid #2c5aa0;
+            padding-bottom: 10px;
+        }
+        .demo-section {
+            margin: 20px 0;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 5px;
+        }
+        .demo-link {
+            display: inline-block;
+            background: #2c5aa0;
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 5px;
+        }
+        .demo-link:hover {
+            background: #1e3a6f;
+        }
+        .code {
+            background: #eee;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            margin: 10px 0;
+        }
+        .architecture {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin: 15px 0;
+            background: #f8f8f8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Microservice Architecture Demo</h1>
+        
+        <p>This application demonstrates integration between a <strong>JAR library</strong> 
+        and a <strong>WAR webapp</strong> in a Tomcat environment.</p>
+
+        <div class="architecture">
+            <h3>Architecture:</h3>
+            <pre>
+┌─────────────────────────────────────┐
+│           WAR Application           │
+│  ┌─────────────────────────────────┐│
+│  │      MicroserviceServlet        ││
+│  │    (Web Layer/HTTP Handler)     ││
+│  └─────────────┬───────────────────┘│
+│                │ imports              │
+│  ┌─────────────▼───────────────────┐│
+│  │      microservice-lib.jar       ││
+│  │   (Business Logic Library)      ││
+│  │   - MicroserviceLib             ││
+│  │   - getGreeting()               ││
+│  │   - getVersion()                ││
+│  │   - getServiceInfo()            ││
+│  └─────────────────────────────────┘│
+└─────────────────────────────────────┘
+            </pre>
+        </div>
+
+        <div class="demo-section">
+            <h3>Test Endpoints:</h3>
+            <a href="api/service" class="demo-link">Service Endpoint</a>
+        </div>
+
+        <div class="demo-section">
+            <h3>Project Structure:</h3>
+            <div class="code">
+examples/microservice/
+├── microservice-lib/                    # JAR Library
+│   ├── src/main/java/com/example/lib/
+│   │   └── MicroserviceLib.java         # Business logic
+│   └── pom.xml                          # Maven JAR config
+├── microservice-webapp/                 # WAR Webapp  
+│   ├── src/main/java/com/example/webapp/
+│   │   └── MicroserviceServlet.java     # HTTP Servlet
+│   ├── src/main/webapp/
+│   │   ├── index.html                   # This page
+│   │   └── WEB-INF/
+│   │       ├── web.xml                  # Webapp config
+│   │       └── lib/                     # JAR dependencies
+│   │           └── microservice-lib.jar # Included library
+│   └── pom.xml                          # Maven WAR config
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <h3>How It Works:</h3>
+            <ol>
+                <li><strong>JAR Library</strong>: Contains pure business logic (MicroserviceLib)</li>
+                <li><strong>WAR Webapp</strong>: Contains servlet that exposes logic via HTTP</li>
+                <li><strong>Integration</strong>: JAR is included in WEB-INF/lib/ of the WAR</li>
+                <li><strong>Deploy</strong>: Tomcat loads WAR and automatically includes JAR</li>
+                <li><strong>Request</strong>: HTTP GET → Servlet → JAR Library → JSON Response</li>
+            </ol>
+        </div>
+
+        <div class="demo-section">
+            <h3>Benefits of This Architecture:</h3>
+            <ul>
+                <li><strong>Separation of concerns</strong>: Business logic separate from web logic</li>
+                <li><strong>Reusability</strong>: JAR library can be used in other projects</li>
+                <li><strong>Testing</strong>: Business logic testable independently from web</li>
+                <li><strong>Maintainability</strong>: Logic changes don't impact web layer</li>
+                <li><strong>Deployment</strong>: Single WAR contains everything needed</li>
+            </ul>
+        </div>
+
+        <p><em>Try the link above to see the JAR library in action!</em></p>
+    </div>
+</body>
+</html>

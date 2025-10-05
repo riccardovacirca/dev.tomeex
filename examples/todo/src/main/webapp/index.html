@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Todo API</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .endpoint { background: #f5f5f5; padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .method { font-weight: bold; color: #fff; padding: 2px 6px; border-radius: 3px; }
+        .get { background: #61affe; }
+        .post { background: #49cc90; }
+        .put { background: #fca130; }
+        .delete { background: #f93e3e; }
+        code { background: #f1f1f1; padding: 2px 4px; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <h1>Todo API Documentation</h1>
+    <p>RESTful API for Todo management built with Jakarta Servlets and JDBI</p>
+    
+    <h2>Available Endpoints</h2>
+    
+    <div class="endpoint">
+        <span class="method get">GET</span> <code>/api/todos</code>
+        <p>Get all todos</p>
+        <p><strong>Query params:</strong> completed, category, priority, search</p>
+    </div>
+    
+    <div class="endpoint">
+        <span class="method get">GET</span> <code>/api/todos/{id}</code>
+        <p>Get todo by ID</p>
+    </div>
+    
+    <div class="endpoint">
+        <span class="method get">GET</span> <code>/api/todos/stats</code>
+        <p>Get todo statistics</p>
+    </div>
+    
+    <div class="endpoint">
+        <span class="method post">POST</span> <code>/api/todos</code>
+        <p>Create new todo</p>
+        <p><strong>Body:</strong> JSON with title, description, priority, category</p>
+    </div>
+    
+    <div class="endpoint">
+        <span class="method post">POST</span> <code>/api/todos/{id}/toggle</code>
+        <p>Toggle todo completed status</p>
+    </div>
+    
+    <div class="endpoint">
+        <span class="method put">PUT</span> <code>/api/todos/{id}</code>
+        <p>Update todo</p>
+        <p><strong>Body:</strong> JSON with updated fields</p>
+    </div>
+    
+    <div class="endpoint">
+        <span class="method delete">DELETE</span> <code>/api/todos/{id}</code>
+        <p>Delete todo</p>
+    </div>
+    
+    <h2>Example Usage</h2>
+    <h3>Create Todo:</h3>
+    <pre><code>curl -X POST http://localhost:9292/todo-api/api/todos \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Buy groceries","description":"Milk, bread, eggs","priority":"HIGH","category":"personal"}'</code></pre>
+    
+    <h3>Get All Todos:</h3>
+    <pre><code>curl http://localhost:9292/todo-api/api/todos</code></pre>
+    
+    <h3>Get Statistics:</h3>
+    <pre><code>curl http://localhost:9292/todo-api/api/todos/stats</code></pre>
+    
+    <h2>Database Setup</h2>
+    <p>This API requires PostgreSQL database with the following table:</p>
+    <pre><code>CREATE TABLE todos (
+    id BIGSERIAL PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    completed BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP,
+    completed_at TIMESTAMP,
+    priority VARCHAR(20) DEFAULT 'MEDIUM',
+    category VARCHAR(100)
+);</code></pre>
+</body>
+</html>
