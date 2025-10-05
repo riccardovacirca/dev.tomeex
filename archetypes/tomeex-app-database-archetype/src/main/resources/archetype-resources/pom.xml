@@ -11,7 +11,16 @@
     <packaging>war</packaging>
     <name>${artifactId} API</name>
     <description>RESTful API for ${artifactId} with database support</description>
-    
+
+    <licenses>
+        <license>
+            <name>PolyForm Noncommercial License 1.0.0</name>
+            <url>https://polyformproject.org/licenses/noncommercial/1.0.0</url>
+            <distribution>repo</distribution>
+            <comments>Inherited from TomEex - Noncommercial use only</comments>
+        </license>
+    </licenses>
+
     <properties>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
@@ -104,6 +113,13 @@
                             <targetPath>META-INF</targetPath>
                             <includes>
                                 <include>context.xml</include>
+                            </includes>
+                        </resource>
+                        <resource>
+                            <directory>${basedir}</directory>
+                            <targetPath>META-INF</targetPath>
+                            <includes>
+                                <include>LICENSE.md</include>
                             </includes>
                         </resource>
                     </webResources>

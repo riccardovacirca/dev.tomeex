@@ -1,104 +1,65 @@
 # ${artifactId}
 
-RESTful API application with ${dbType} database support.
+RESTful API with database support
 
-## Quick Start
-
-### Database Setup
-
-Initialize the database table:
-```bash
-make init-db
-```
-
-### Build Commands
+## Commands
 
 ```bash
-# Clean build artifacts
-make clean
-
-# Build the application
-make build
-
-# Deploy to TomEE
-make deploy
-
-# Check deployment status
-make status
+make                      # Quick incremental deploy (compile + rsync) [DEFAULT]
+make compile              # Compile source code only
+make build                # Build WAR (dev profile, reloadable)
+make release              # Build WAR (prod profile, non-reloadable)
+make deploy               # Full build + deploy WAR to TomEE
+make test                 # Run unit tests
+make test-verbose         # Run tests with detailed output
+make clean                # Clean build artifacts + remove from TomEE
+make dbcli                # Connect to application database
+make dbcli load=file.sql  # Execute SQL file in database
+make help                 # Show all available targets
 ```
 
-## API Endpoints
+**Clean redeploy:** `make clean && make deploy`
 
-- **GET** `/api/items` - Get all items
-- **GET** `/api/items/{id}` - Get item by ID  
-- **POST** `/api/items` - Create new item
+## Database
 
-## Testing
+**Configuration:**
+- Edit `src/main/webapp/META-INF/context-dev.xml` for development database
+- Edit `src/main/webapp/META-INF/context-prod.xml` for production database
+- Connection available via JNDI: `java:comp/env/jdbc/MainDB`
 
-After deployment:
-- **Web UI**: http://localhost:9292/${artifactId}/
-- **API Base**: http://localhost:9292/${artifactId}/api/items
-
-### Example API Calls
-
+**Connect to database:**
 ```bash
-# Get all items
-curl http://localhost:9292/${artifactId}/api/items
-
-# Create new item
-curl -X POST http://localhost:9292/${artifactId}/api/items \
-  -H "Content-Type: application/json" \
-  -d '{"title":"Sample Item","description":"This is a test item"}'
-
-# Get specific item
-curl http://localhost:9292/${artifactId}/api/items/1
+make dbcli                    # Interactive SQL shell
+make dbcli load=schema.sql    # Execute SQL file
 ```
 
-## Database Configuration
+## Access
 
-- **Type**: ${dbType}
-- **Connection**: Configured via TomEE JNDI datasource
-- **Pool**: Connection pooling enabled (max 20 connections)
+- **Application:** http://localhost:9292/${artifactId}
+- **API Endpoint:** http://localhost:9292/${artifactId}/api/items
+- **TomEE Manager:** http://localhost:9292/manager/html
 
-## Project Structure
+## Quick Deploy vs Full Deploy
 
-```
-${artifactId}/
-├── pom.xml                          # Maven configuration with ${dbType} driver
-├── Makefile                         # Build, deploy, and database commands
-├── README.md                        # This file
-├── src/
-│   └── main/
-│       ├── java/
-│       │   └── ${package}/
-│       │       ├── model/
-│       │       │   └── Item.java    # Data model
-│       │       ├── repository/
-│       │       │   ├── DatabaseManager.java    # DB connection
-│       │       │   ├── BaseRepository.java     # Base repository
-│       │       │   └── ItemRepository.java     # Item repository
-│       │       └── servlet/
-│       │           └── ItemServlet.java        # REST API servlet
-│       ├── resources/
-│       │   └── META-INF/
-│       │       └── context.xml      # TomEE datasource config
-│       └── webapp/
-│           ├── index.html           # API documentation page
-│           └── WEB-INF/
-│               └── web.xml          # Web app configuration
-└── target/
-    └── ${artifactId}.war           # Generated WAR file
-```
+- `make` (quick-deploy): Fast incremental sync - compiles and syncs classes to exploded WAR
+- `make deploy`: Full WAR build and deployment - use for first deployment or major changes
 
-## Features
+## License
 
-- ✅ **Modern stack**: Java 17, Jakarta EE, JDBI
-- ✅ **Database ready**: Pre-configured for ${dbType}
-- ✅ **REST API**: JSON endpoints with CORS support
-- ✅ **Connection pooling**: TomEE managed datasource
-- ✅ **Easy deployment**: Single command deploy
-- ✅ **Database initialization**: `make init-db` command
+PolyForm Noncommercial License 1.0.0 - See LICENSE.md
 
----
-
-Generated with TomEE Development Environment
+**To change license:**
+1. Edit `LICENSE.md` with your license text
+2. Update `pom.xml` section:
+   ```xml
+   <licenses>
+       <license>
+           <name>Your License Name</name>
+           <url>https://your-license-url</url>
+           <distribution>repo</distribution>
+           <comments>Your license description</comments>
+       </license>
+   </licenses>
+   ```
+3. Rebuild: `make clean && make deploy`
+4. License will be included in WAR at `META-INF/LICENSE.md`

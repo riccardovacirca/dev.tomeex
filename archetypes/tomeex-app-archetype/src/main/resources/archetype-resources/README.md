@@ -1,69 +1,49 @@
 # ${artifactId}
 
-Maven web application generated for TomEE development environment.
+TomEE web application
 
-## Quick Start
-
-### Build Commands
+## Commands
 
 ```bash
-# Clean build artifacts
-make clean
-
-# Build the application
-make build
-
-# Deploy to TomEE
-make deploy
-
-# Check deployment status
-make status
+make              # Quick incremental deploy (compile + rsync) [DEFAULT]
+make compile      # Compile source code only
+make build        # Build WAR (dev profile, reloadable)
+make release      # Build WAR (prod profile, non-reloadable)
+make deploy       # Full build + deploy WAR to TomEE
+make test         # Run unit tests
+make test-verbose # Run tests with detailed output
+make clean        # Clean build artifacts + remove from TomEE
+make help         # Show all available targets
 ```
 
-### Testing
+**Clean redeploy:** `make clean && make deploy`
 
-After deployment, access your application at:
-- http://localhost:9292/${artifactId}/
+## Access
 
-API endpoint:
-- http://localhost:9292/${artifactId}/api/hello
+- **Application:** http://localhost:9292/${artifactId}
+- **TomEE Manager:** http://localhost:9292/manager/html
 
-### Project Structure
+## Quick Deploy vs Full Deploy
 
-```
-${artifactId}/
-├── pom.xml                          # Maven configuration
-├── Makefile                         # Build and deploy commands
-├── README.md                        # This file
-├── src/
-│   └── main/
-│       ├── java/
-│       │   └── ${package}/servlet/
-│       │       └── HelloServlet.java # Sample servlet
-│       └── webapp/
-│           ├── index.html           # Main page
-│           └── WEB-INF/
-│               └── web.xml          # Web app configuration
-└── target/
-    └── ${artifactId}.war           # Generated WAR file
-```
+- `make` (quick-deploy): Fast incremental sync - compiles and syncs classes to exploded WAR
+- `make deploy`: Full WAR build and deployment - use for first deployment or major changes
 
-### Development Workflow
+## License
 
-1. Modify your servlets in `src/main/java/`
-2. Update JSP/HTML files in `src/main/webapp/`
-3. Run `make build` to compile
-4. Run `make deploy` to deploy to TomEE
-5. Test at http://localhost:9292/${artifactId}/
+PolyForm Noncommercial License 1.0.0 - See LICENSE.md
 
-### Features
-
-- ✅ Modern Maven configuration (Java 17, Jakarta EE)
-- ✅ Sample servlet with JSON API
-- ✅ CORS enabled for development
-- ✅ Ready for TomEE deployment
-- ✅ Makefile for easy build/deploy
-
----
-
-Generated with TomEE Development Environment
+**To change license:**
+1. Edit `LICENSE.md` with your license text
+2. Update `pom.xml` section:
+   ```xml
+   <licenses>
+       <license>
+           <name>Your License Name</name>
+           <url>https://your-license-url</url>
+           <distribution>repo</distribution>
+           <comments>Your license description</comments>
+       </license>
+   </licenses>
+   ```
+3. Rebuild: `make clean && make deploy`
+4. License will be included in WAR at `META-INF/LICENSE.md`

@@ -12,7 +12,16 @@
     
     <name>${artifactId} Library</name>
     <description>Reusable JAR library for ${artifactId}</description>
-    
+
+    <licenses>
+        <license>
+            <name>PolyForm Noncommercial License 1.0.0</name>
+            <url>https://polyformproject.org/licenses/noncommercial/1.0.0</url>
+            <distribution>repo</distribution>
+            <comments>Inherited from TomEex - Noncommercial use only</comments>
+        </license>
+    </licenses>
+
     <properties>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
@@ -47,7 +56,20 @@
     
     <build>
         <finalName>${artifactId}</finalName>
-        
+
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+            <resource>
+                <directory>${basedir}</directory>
+                <includes>
+                    <include>LICENSE.md</include>
+                </includes>
+                <targetPath>META-INF</targetPath>
+            </resource>
+        </resources>
+
         <plugins>
             <!-- Compiler plugin for Java 17 -->
             <plugin>

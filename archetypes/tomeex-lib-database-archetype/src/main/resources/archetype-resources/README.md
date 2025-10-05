@@ -1,26 +1,38 @@
-# ${artifactId} Database Library
+# ${artifactId}
 
-Database-enabled JAR library for ${artifactId} with JDBI integration
+Database-enabled JAR library for ${artifactId}
 
-## Quick Start
+## Commands
 
-### Building the Library
-
+**Development:**
 ```bash
-# Build JAR library
-make build
-
-# Run unit tests
-make test
-
-# Install to local Maven repository
-make install
+make              # Compile + build JAR + install to Maven repo
+make build        # Compile + build JAR to target/
+make compile      # Compile source code only
 ```
 
-### Using in Other Projects
+**Testing:**
+```bash
+make test         # Run unit tests (uses H2 in-memory database)
+make test-verbose # Run tests with detailed output
+```
 
-After installing the library locally, add this dependency to any webapp or application:
+**Distribution:**
+```bash
+make install      # Install JAR to local Maven repository (~/.m2)
+make coordinates  # Show Maven dependency for other projects
+```
 
+**Maintenance:**
+```bash
+make clean        # Remove build artifacts
+make docs         # Generate Javadoc in target/site/
+make check-repo   # Verify library in local Maven repo
+```
+
+## Usage in Other Projects
+
+After `make install`, add to pom.xml:
 ```xml
 <dependency>
     <groupId>${groupId}</groupId>
@@ -29,124 +41,31 @@ After installing the library locally, add this dependency to any webapp or appli
 </dependency>
 ```
 
-### Example Usage
+**Note:** Database drivers (PostgreSQL, MariaDB, SQLite) are `provided` scope - add them to your application's pom.xml.
 
-```java
-import ${package}.DatabaseService;
-import org.jdbi.v3.core.Jdbi;
+## Database
 
-public class MyApplication {
-    public static void main(String[] args) {
-        // Configure JDBI with your database connection
-        Jdbi jdbi = Jdbi.create("jdbc:your-database-url");
-        DatabaseService service = new DatabaseService(jdbi);
-        
-        System.out.println(service.getGreeting());
-        System.out.println("Version: " + service.getVersion());
-        
-        // Test database connectivity
-        if (service.testConnection()) {
-            System.out.println("Database connected successfully!");
-            
-            // Get database info
-            var info = service.getDatabaseInfo();
-            System.out.println("Database: " + info.get("productName"));
-        }
-    }
-}
-```
+This library uses JDBI for database operations. Supported databases:
+- PostgreSQL
+- MariaDB
+- SQLite
 
-## Architecture
+## License
 
-This library follows best practices for database-enabled Java libraries:
+PolyForm Noncommercial License 1.0.0 - See LICENSE.md
 
-- **Database Integration**: Uses JDBI for type-safe database operations
-- **Framework Agnostic**: Can be used in webapps, CLI applications, batch jobs
-- **Well Tested**: Comprehensive unit test suite with in-memory H2 database
-- **Standard Maven Structure**: Easy to integrate and build
-- **Multiple Database Support**: Compatible with PostgreSQL, MariaDB, SQLite
-
-## Development
-
-### Available Make Targets
-
-```bash
-make help              # Show all available targets
-make build             # Build JAR library
-make test              # Run unit tests
-make install           # Install to local Maven repository
-make clean             # Clean build artifacts
-make docs              # Generate Javadoc
-
-make dev-build         # Full development build
-make dev-install       # Clean install to local repository
-make check-repo        # Check if library is in local Maven repo
-make coordinates       # Show Maven dependency coordinates
-```
-
-### Project Structure
-
-```
-${artifactId}/
-├── pom.xml                    # Maven configuration
-├── Makefile                   # Build automation
-├── README.md                  # This documentation
-├── src/main/java/             # Library source code
-│   └── ${package}/
-│       └── LibraryService.java    # Main service class
-└── src/test/java/             # Unit tests
-    └── ${package}/
-        └── LibraryServiceTest.java # Test suite
-```
-
-### Testing Strategy
-
-The library includes comprehensive unit tests that:
-
-- Test all public methods
-- Cover edge cases (null, empty, invalid inputs)
-- Validate business logic without external dependencies
-- Run fast and can be executed in any environment
-
-### Reusability
-
-This library can be:
-
-1. **Imported by webapps**: Add as dependency in WAR projects
-2. **Used in CLI applications**: Build standalone applications
-3. **Integrated in batch jobs**: Use for scheduled processing
-4. **Extended**: Inherit or compose for specialized functionality
-
-### Best Practices
-
-- **Keep dependencies minimal**: Only add what's absolutely necessary
-- **Write comprehensive tests**: Ensure reliability across different usage contexts
-- **Document public APIs**: Use Javadoc for all public methods
-- **Version carefully**: Use semantic versioning for compatibility
-
-## Deployment
-
-### Local Development
-
-```bash
-# Install locally for use in other projects
-make install
-
-# Verify installation
-make check-repo
-```
-
-### Integration with Webapps
-
-After installing locally, any webapp in this TomEE environment can use the library:
-
-1. Add dependency to webapp's `pom.xml`
-2. Import classes in servlet code
-3. Maven will automatically include the JAR in WAR file
-4. Deploy webapp normally - library will be in `WEB-INF/lib/`
-
----
-
-Generated with tomee-jar-library archetype  
-Copyright: (C)2018-2025 Riccardo Vacirca. All right reserved.  
-License: GNU GPL Version 2.
+**To change license:**
+1. Edit `LICENSE.md` with your license text
+2. Update `pom.xml` section:
+   ```xml
+   <licenses>
+       <license>
+           <name>Your License Name</name>
+           <url>https://your-license-url</url>
+           <distribution>repo</distribution>
+           <comments>Your license description</comments>
+       </license>
+   </licenses>
+   ```
+3. Rebuild: `make clean && make install`
+4. License will be included in JAR at `META-INF/LICENSE.md`
