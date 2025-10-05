@@ -3,16 +3,19 @@ MAKEFLAGS += --no-print-directory
 # ${artifactId} Library Build System
 # Usage: make [target]
 
-.DEFAULT_GOAL := help
+.DEFAULT_GOAL := install
 
 # Build targets
-build:
-	@echo "Building ${artifactId} library..."
-	@export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 && mvn package -q
-
 compile:
 	@echo "Compiling ${artifactId} library..."
 	@export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 && mvn compile -q
+
+build: compile
+	@echo "Packaging ${artifactId} library..."
+	@export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 && mvn package -q -DskipTests
+	@echo "Copying JAR to /workspace/lib..."
+	@mkdir -p /workspace/lib
+	@cp target/*.jar /workspace/lib/
 
 # Testing
 test:
@@ -24,9 +27,9 @@ test-verbose:
 	@export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 && mvn test -X
 
 # Install to local Maven repository
-install:
+install: build
 	@echo "Installing ${artifactId} to local Maven repository..."
-	@export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 && mvn install -q
+	@export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 && mvn install -q -DskipTests
 
 # Clean build artifacts
 clean:
@@ -37,13 +40,6 @@ clean:
 docs:
 	@echo "Generating Javadoc..."
 	@export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 && mvn javadoc:javadoc -q
-
-# Development targets
-dev-build: clean compile test
-	@echo "${artifactId} development build completed"
-
-dev-install: clean install
-	@echo "${artifactId} installed to local repository"
 
 # Check if library is available in local repo
 check-repo:
@@ -72,11 +68,9 @@ help:
 	@echo "  clean         - Clean build artifacts"
 	@echo "  docs          - Generate Javadoc"
 	@echo ""
-	@echo "  dev-build     - Full development build (clean + compile + test)"
-	@echo "  dev-install   - Clean install to local repository"
 	@echo "  check-repo    - Check if library is in local Maven repo"
 	@echo "  coordinates   - Show Maven dependency coordinates"
 	@echo ""
 	@echo "  help          - Show this help message"
 
-.PHONY: build compile test test-verbose install clean docs dev-build dev-install check-repo coordinates help
+.PHONY: build compile test test-verbose install clean docs check-repo coordinates help

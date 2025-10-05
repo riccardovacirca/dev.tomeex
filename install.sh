@@ -1312,6 +1312,109 @@ create_library() {
   print_info "Created: projects/$lib_name/ with groupId: $group_id"
 }
 
+# Install JAR libraries from /workspace/lib to local Maven repository
+install_libs_from_workspace() {
+  local lib_dir="/workspace/lib"
+
+  if [ ! -d "$lib_dir" ]; then
+    print_info "No /workspace/lib directory found, skipping library installation"
+    return 0
+  fi
+
+  # Count JAR files (excluding sources and javadoc)
+  local jar_count=$(find "$lib_dir" -maxdepth 1 -name "*.jar" ! -name "*-sources.jar" ! -name "*-javadoc.jar" 2>/dev/null | wc -l)
+
+  if [ "$jar_count" -eq 0 ]; then
+    print_info "No JAR libraries found in /workspace/lib"
+    return 0
+  fi
+
+  print_info "Installing $jar_count JAR libraries from /workspace/lib to Maven local repository..."
+
+  # Process each main JAR file
+  for jar_file in "$lib_dir"/*.jar; do
+    # Skip if no files found or if it's a sources/javadoc jar
+    [ -f "$jar_file" ] || continue
+    case "$(basename "$jar_file")" in
+      *-sources.jar|*-javadoc.jar) continue ;;
+    esac
+
+    # Extract pom.properties to get Maven coordinates
+    local temp_dir=$(mktemp -d)
+    local pom_props=""
+    local current_dir=$(pwd)
+
+    # Try to extract pom.properties from the JAR
+    cd "$temp_dir" || { rm -rf "$temp_dir"; continue; }
+    if jar -xf "$jar_file" META-INF/maven/ 2>/dev/null; then
+      pom_props=$(find . -name "pom.properties" | head -1)
+    fi
+    cd "$current_dir" || exit 1
+
+    if [ -n "$pom_props" ] && [ -f "$temp_dir/$pom_props" ]; then
+      # Read Maven coordinates from pom.properties
+      local groupId=$(grep "^groupId=" "$temp_dir/$pom_props" | cut -d= -f2)
+      local artifactId=$(grep "^artifactId=" "$temp_dir/$pom_props" | cut -d= -f2)
+      local version=$(grep "^version=" "$temp_dir/$pom_props" | cut -d= -f2)
+
+      if [ -n "$groupId" ] && [ -n "$artifactId" ] && [ -n "$version" ]; then
+        print_info "Installing $artifactId-$version.jar..."
+
+        # Install main JAR
+        mvn install:install-file \
+          -Dfile="$jar_file" \
+          -DgroupId="$groupId" \
+          -DartifactId="$artifactId" \
+          -Dversion="$version" \
+          -Dpackaging=jar \
+          -DgeneratePom=false \
+          -DcreateChecksum=true \
+          -q 2>/dev/null || print_warn "Failed to install $jar_file"
+
+        # Install sources JAR if exists
+        local base_name=$(basename "$jar_file" .jar)
+        local sources_jar="$lib_dir/${base_name}-sources.jar"
+        if [ -f "$sources_jar" ]; then
+          mvn install:install-file \
+            -Dfile="$sources_jar" \
+            -DgroupId="$groupId" \
+            -DartifactId="$artifactId" \
+            -Dversion="$version" \
+            -Dpackaging=jar \
+            -Dclassifier=sources \
+            -DgeneratePom=false \
+            -DcreateChecksum=true \
+            -q 2>/dev/null
+        fi
+
+        # Install javadoc JAR if exists
+        local javadoc_jar="$lib_dir/${base_name}-javadoc.jar"
+        if [ -f "$javadoc_jar" ]; then
+          mvn install:install-file \
+            -Dfile="$javadoc_jar" \
+            -DgroupId="$groupId" \
+            -DartifactId="$artifactId" \
+            -Dversion="$version" \
+            -Dpackaging=jar \
+            -Dclassifier=javadoc \
+            -DgeneratePom=false \
+            -DcreateChecksum=true \
+            -q 2>/dev/null
+        fi
+      else
+        print_warn "Could not extract Maven coordinates from $jar_file"
+      fi
+    else
+      print_warn "No pom.properties found in $jar_file, skipping installation"
+    fi
+
+    # Cleanup temp directory
+    rm -rf "$temp_dir"
+  done
+
+  print_info "Library installation from /workspace/lib completed"
+}
+
 # Parse command line arguments
 parse_args() {
   while [ $# -gt 0 ]; do
@@ -1486,6 +1589,7 @@ main() {
   install_dev_tools
   configure_git
   configure_shell_aliases
+  install_libs_from_workspace
   echo ""
   print_info "=== Setup Complete ==="
   HOST_PORT=$(grep HOST_PORT .env | cut -d= -f2)
