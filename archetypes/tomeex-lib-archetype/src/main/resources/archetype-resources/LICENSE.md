@@ -6,9 +6,9 @@
 
 ---
 
-## Inherited License from TomEex
+## Inherited License from TomEEx
 
-This library is built using the **TomEex** development framework and inherits its licensing terms.
+This library is built using the **TomEEx** development framework and inherits its licensing terms.
 
 ### PolyForm Noncommercial License 1.0.0
 

@@ -15,19 +15,19 @@ DATABASE_TYPE=""
 GROUP_ID=""
 
 print_info() {
-  printf "[INFO] %s\n" "$1"
+  printf "[info] %s\n" "$1"
 }
 
 print_warn() {
-  printf "[WARN] %s\n" "$1"
+  printf "[warn] %s\n" "$1"
 }
 
 print_error() {
-  printf "[ERROR] %s\n" "$1"
+  printf "[error] %s\n" "$1"
 }
 
 print_header() {
-  printf "[TOMEE-DEV] %s\n" "$1"
+  printf "[tomeex] %s\n" "$1"
 }
 
 # Check if an archetype is installed in the local Maven repository
@@ -75,11 +75,11 @@ create_env_file() {
   print_info "Creating .env configuration"
   cat > ".env" << EOF
 # Container Configuration
-CONTAINER_NAME=tomee-dev
+CONTAINER_NAME=tomeex
 TOMEE_VERSION=9-jre17-plume
 
 # Network Configuration
-NETWORK_NAME=tomee-dev-net
+NETWORK_NAME=tomeex-net
 HOST_PORT=9292
 MANAGER_PORT=9292
 TOMEE_INTERNAL_PORT=8080
@@ -102,12 +102,12 @@ MANAGER_PASSWORD=manager123
 
 # Logging Configuration
 LOG_DIR=logs
-LOG_FILE=tomee-dev.log
+LOG_FILE=tomeex.log
 LOG_ROTATION=daily
 
 # PostgreSQL Configuration (optional)
 POSTGRES_ENABLED=false
-POSTGRES_CONTAINER_NAME=tomee-dev-postgres
+POSTGRES_CONTAINER_NAME=tomeex-postgres
 POSTGRES_VERSION=latest
 POSTGRES_PORT=15432
 POSTGRES_DB=devdb
@@ -118,7 +118,7 @@ POSTGRES_DATA_DIR=postgres-data
 
 # MariaDB Configuration (optional)
 MARIADB_ENABLED=false
-MARIADB_CONTAINER_NAME=tomee-dev-mariadb
+MARIADB_CONTAINER_NAME=tomeex-mariadb
 MARIADB_VERSION=latest
 MARIADB_PORT=13306
 MARIADB_DATABASE=devdb

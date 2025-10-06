@@ -9,7 +9,7 @@
               username="${artifactId}"
               password="secret"
               driverClassName="org.postgresql.Driver"
-              url="jdbc:postgresql://tomee-dev-postgres:5432/${artifactId}"/>
+              url="jdbc:postgresql://tomeex-postgres:5432/${artifactId}"/>
 #elseif( $dbType == "mariadb" )
     <Resource name="jdbc/${artifactId}DB"
               auth="Container"
@@ -20,7 +20,7 @@
               username="${artifactId}"
               password="secret"
               driverClassName="org.mariadb.jdbc.Driver"
-              url="jdbc:mariadb://tomee-dev-mariadb:3306/${artifactId}"/>
+              url="jdbc:mariadb://tomeex-mariadb:3306/${artifactId}"/>
 #elseif( $dbType == "sqlite" )
     <Resource name="jdbc/${artifactId}DB"
               auth="Container"

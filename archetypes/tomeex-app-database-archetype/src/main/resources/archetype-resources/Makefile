@@ -4,7 +4,7 @@ MAKEFLAGS += --no-print-directory
 # Usage: make [target]
 
 APP_NAME = ${artifactId}
-CONTAINER_NAME = tomee-dev
+CONTAINER_NAME = tomeex
 TOMEE_WEBAPPS = /usr/local/tomee/webapps
 
 .DEFAULT_GOAL := quick-deploy
