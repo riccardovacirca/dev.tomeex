@@ -1314,15 +1314,23 @@ create_library() {
 
 # Install JAR libraries from /workspace/lib to local Maven repository
 install_libs_from_workspace() {
+  local CONTAINER_NAME=$(grep "^CONTAINER_NAME=" .env | cut -d= -f2)
   local lib_dir="/workspace/lib"
 
-  if [ ! -d "$lib_dir" ]; then
-    print_info "No /workspace/lib directory found, skipping library installation"
+  # Check if container is running
+  if ! docker ps --format 'table {{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
+    print_warn "Container ${CONTAINER_NAME} is not running, skipping library installation"
+    return 0
+  fi
+
+  # Check if lib directory exists in container
+  if ! docker exec "${CONTAINER_NAME}" [ -d "$lib_dir" ]; then
+    print_info "No /workspace/lib directory found in container, skipping library installation"
     return 0
   fi
 
   # Count JAR files (excluding sources and javadoc)
-  local jar_count=$(find "$lib_dir" -maxdepth 1 -name "*.jar" ! -name "*-sources.jar" ! -name "*-javadoc.jar" 2>/dev/null | wc -l)
+  local jar_count=$(docker exec "${CONTAINER_NAME}" find "$lib_dir" -maxdepth 1 -name "*.jar" ! -name "*-sources.jar" ! -name "*-javadoc.jar" 2>/dev/null | wc -l)
 
   if [ "$jar_count" -eq 0 ]; then
     print_info "No JAR libraries found in /workspace/lib"
@@ -1331,75 +1339,67 @@ install_libs_from_workspace() {
 
   print_info "Installing $jar_count JAR libraries from /workspace/lib to Maven local repository..."
 
-  # Process each main JAR file
-  for jar_file in "$lib_dir"/*.jar; do
-    # Skip if no files found or if it's a sources/javadoc jar
-    [ -f "$jar_file" ] || continue
-    case "$(basename "$jar_file")" in
-      *-sources.jar|*-javadoc.jar) continue ;;
-    esac
-
+  # Get list of JAR files from container
+  docker exec "${CONTAINER_NAME}" find "$lib_dir" -maxdepth 1 -name "*.jar" ! -name "*-sources.jar" ! -name "*-javadoc.jar" 2>/dev/null | while read jar_file; do
     # Extract pom.properties to get Maven coordinates
-    local temp_dir=$(mktemp -d)
-    local pom_props=""
-    local current_dir=$(pwd)
+    # Create a temp directory and extract there
+    local temp_dir=$(docker exec "${CONTAINER_NAME}" mktemp -d)
+    local pom_props=$(docker exec "${CONTAINER_NAME}" sh -c "cd '$temp_dir' && jar -xf '$jar_file' META-INF/maven/ 2>/dev/null && find . -name 'pom.properties' 2>/dev/null | head -1" || echo "")
 
-    # Try to extract pom.properties from the JAR
-    cd "$temp_dir" || { rm -rf "$temp_dir"; continue; }
-    if jar -xf "$jar_file" META-INF/maven/ 2>/dev/null; then
-      pom_props=$(find . -name "pom.properties" | head -1)
-    fi
-    cd "$current_dir" || exit 1
+    if [ -n "$pom_props" ]; then
+      # Construct full path to pom.properties
+      local pom_props_full="$temp_dir/$pom_props"
 
-    if [ -n "$pom_props" ] && [ -f "$temp_dir/$pom_props" ]; then
       # Read Maven coordinates from pom.properties
-      local groupId=$(grep "^groupId=" "$temp_dir/$pom_props" | cut -d= -f2)
-      local artifactId=$(grep "^artifactId=" "$temp_dir/$pom_props" | cut -d= -f2)
-      local version=$(grep "^version=" "$temp_dir/$pom_props" | cut -d= -f2)
+      local groupId=$(docker exec "${CONTAINER_NAME}" grep "^groupId=" "$pom_props_full" | cut -d= -f2)
+      local artifactId=$(docker exec "${CONTAINER_NAME}" grep "^artifactId=" "$pom_props_full" | cut -d= -f2)
+      local version=$(docker exec "${CONTAINER_NAME}" grep "^version=" "$pom_props_full" | cut -d= -f2)
 
       if [ -n "$groupId" ] && [ -n "$artifactId" ] && [ -n "$version" ]; then
         print_info "Installing $artifactId-$version.jar..."
 
-        # Install main JAR
-        mvn install:install-file \
-          -Dfile="$jar_file" \
-          -DgroupId="$groupId" \
-          -DartifactId="$artifactId" \
-          -Dversion="$version" \
+        # Install main JAR inside container
+        docker exec "${CONTAINER_NAME}" sh -c "export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 && mvn install:install-file \
+          -Dfile='$jar_file' \
+          -DgroupId='$groupId' \
+          -DartifactId='$artifactId' \
+          -Dversion='$version' \
           -Dpackaging=jar \
-          -DgeneratePom=false \
+          -DgeneratePom=true \
           -DcreateChecksum=true \
-          -q 2>/dev/null || print_warn "Failed to install $jar_file"
+          -q" || print_warn "Failed to install $jar_file"
 
         # Install sources JAR if exists
         local base_name=$(basename "$jar_file" .jar)
         local sources_jar="$lib_dir/${base_name}-sources.jar"
-        if [ -f "$sources_jar" ]; then
-          mvn install:install-file \
-            -Dfile="$sources_jar" \
-            -DgroupId="$groupId" \
-            -DartifactId="$artifactId" \
-            -Dversion="$version" \
+        if docker exec "${CONTAINER_NAME}" [ -f "$sources_jar" ]; then
+          print_info "Installing $artifactId-$version-sources.jar..."
+          docker exec "${CONTAINER_NAME}" sh -c "export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 && mvn install:install-file \
+            -Dfile='$sources_jar' \
+            -DgroupId='$groupId' \
+            -DartifactId='$artifactId' \
+            -Dversion='$version' \
             -Dpackaging=jar \
             -Dclassifier=sources \
             -DgeneratePom=false \
             -DcreateChecksum=true \
-            -q 2>/dev/null
+            -q"
         fi
 
         # Install javadoc JAR if exists
         local javadoc_jar="$lib_dir/${base_name}-javadoc.jar"
-        if [ -f "$javadoc_jar" ]; then
-          mvn install:install-file \
-            -Dfile="$javadoc_jar" \
-            -DgroupId="$groupId" \
-            -DartifactId="$artifactId" \
-            -Dversion="$version" \
+        if docker exec "${CONTAINER_NAME}" [ -f "$javadoc_jar" ]; then
+          print_info "Installing $artifactId-$version-javadoc.jar..."
+          docker exec "${CONTAINER_NAME}" sh -c "export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 && mvn install:install-file \
+            -Dfile='$javadoc_jar' \
+            -DgroupId='$groupId' \
+            -DartifactId='$artifactId' \
+            -Dversion='$version' \
             -Dpackaging=jar \
             -Dclassifier=javadoc \
             -DgeneratePom=false \
             -DcreateChecksum=true \
-            -q 2>/dev/null
+            -q"
         fi
       else
         print_warn "Could not extract Maven coordinates from $jar_file"
@@ -1408,8 +1408,8 @@ install_libs_from_workspace() {
       print_warn "No pom.properties found in $jar_file, skipping installation"
     fi
 
-    # Cleanup temp directory
-    rm -rf "$temp_dir"
+    # Cleanup temp directory in container
+    docker exec "${CONTAINER_NAME}" rm -rf "$temp_dir" 2>/dev/null || true
   done
 
   print_info "Library installation from /workspace/lib completed"

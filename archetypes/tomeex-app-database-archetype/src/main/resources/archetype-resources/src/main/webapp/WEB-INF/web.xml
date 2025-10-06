@@ -11,7 +11,7 @@
     <!-- Servlet Configuration -->
     <servlet>
         <servlet-name>ItemServlet</servlet-name>
-        <servlet-class>com.example.servlet.ItemServlet</servlet-class>
+        <servlet-class>${package}.servlet.ItemServlet</servlet-class>
     </servlet>
 
     <servlet-mapping>
