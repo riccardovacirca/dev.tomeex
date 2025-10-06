@@ -72,7 +72,6 @@ ensure_archetype_installed() {
 }
 
 create_env_file() {
-  print_info "Creating .env configuration"
   cat > ".env" << EOF
 # Container Configuration
 CONTAINER_NAME=tomeex
@@ -106,33 +105,22 @@ LOG_FILE=tomeex.log
 LOG_ROTATION=daily
 
 # PostgreSQL Configuration (optional)
-POSTGRES_ENABLED=false
 POSTGRES_CONTAINER_NAME=tomeex-postgres
 POSTGRES_VERSION=latest
 POSTGRES_PORT=15432
-POSTGRES_DB=devdb
-POSTGRES_USER=devuser
 POSTGRES_PASSWORD=devpass123
-POSTGRES_ROOT_PASSWORD=rootpass123
 POSTGRES_DATA_DIR=postgres-data
 
 # MariaDB Configuration (optional)
-MARIADB_ENABLED=false
 MARIADB_CONTAINER_NAME=tomeex-mariadb
 MARIADB_VERSION=latest
 MARIADB_PORT=13306
-MARIADB_DATABASE=devdb
-MARIADB_USER=devuser
-MARIADB_PASSWORD=devpass123
 MARIADB_ROOT_PASSWORD=rootpass123
 MARIADB_DATA_DIR=mariadb-data
 
 # SQLite Configuration (optional)
-SQLITE_ENABLED=false
-SQLITE_DATABASE=devdb.sqlite
 SQLITE_DATA_DIR=sqlite-data
 EOF
-  print_info ".env file created successfully"
 }
 
 check_docker() {
@@ -144,7 +132,6 @@ check_docker() {
     print_error "Docker is not running. Please start Docker service."
     exit 1
   fi
-  print_info "Docker is available and running"
 }
 
 create_basic_directories() {
@@ -358,44 +345,23 @@ wait_for_tomee() {
 install_dev_tools() {
   CONTAINER_NAME=$(grep "^CONTAINER_NAME=" .env | cut -d= -f2)
   print_info "Installing development tools in container..."
-  # Check if tools are already installed (idempotency)
-  if docker exec "${CONTAINER_NAME}" which mvn > /dev/null 2>&1 && \
-    docker exec "${CONTAINER_NAME}" which make > /dev/null 2>&1 && \
-    docker exec "${CONTAINER_NAME}" which git > /dev/null 2>&1 && \
-    docker exec "${CONTAINER_NAME}" which psql > /dev/null 2>&1; then
-    print_info "Development tools already installed, skipping installation"
-  else
-    print_info "Installing missing development tools..."
-    # Update package list
-    docker exec "${CONTAINER_NAME}" apt-get update -qq > /dev/null 2>&1
-    # Install development tools including JDK for Maven compilation
-    if docker exec "${CONTAINER_NAME}" apt-get install -y --no-install-recommends \
-      make \
-      openjdk-17-jdk-headless \
-      git \
-      maven \
-      wget \
-      curl \
-      rsync \
-      postgresql-client > /dev/null 2>&1; then
-      print_info "Development tools packages installed"
-      # Configure JAVA_HOME for Maven compilation
-      docker exec "${CONTAINER_NAME}" bash -c "echo 'export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64' >> /root/.bashrc"
-      print_info "JAVA_HOME configured for Maven compilation"
-    else
-      print_warn "Some development tools packages may have failed to install"
-    fi
-    # Clean up
+  docker exec "${CONTAINER_NAME}" apt-get update -qq > /dev/null 2>&1
+  if docker exec "${CONTAINER_NAME}" apt-get install -y --no-install-recommends \
+    make \
+    openjdk-17-jdk-headless \
+    git \
+    maven \
+    wget \
+    curl \
+    rsync \
+    postgresql-client > /dev/null 2>&1; then
+    docker exec "${CONTAINER_NAME}" bash -c "echo 'export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64' >> /root/.bashrc" 2>/dev/null || true
     docker exec "${CONTAINER_NAME}" apt-get clean > /dev/null 2>&1
     docker exec "${CONTAINER_NAME}" rm -rf /var/lib/apt/lists/* > /dev/null 2>&1
-  fi
-  # Verify installation
-  if docker exec "${CONTAINER_NAME}" which mvn > /dev/null 2>&1; then
-    MAVEN_VERSION=$(docker exec "${CONTAINER_NAME}" mvn -version 2>/dev/null | head -1 | cut -d' ' -f3)
-    print_info "Development tools installed successfully (make, javac, jar, git, maven $MAVEN_VERSION)"
+    print_info "Development tools installed successfully"
   else
-    print_warn "Maven installation may have failed"
-    print_info "Development tools installed (make, javac, jar, git)"
+    print_error "Failed to install development tools"
+    exit 1
   fi
 }
 
@@ -475,67 +441,52 @@ start_postgres_container() {
   POSTGRES_CONTAINER_NAME=$(grep POSTGRES_CONTAINER_NAME .env | cut -d= -f2)
   POSTGRES_VERSION=$(grep POSTGRES_VERSION .env | cut -d= -f2)
   POSTGRES_PORT=$(grep POSTGRES_PORT .env | cut -d= -f2)
-  POSTGRES_DB=$(grep POSTGRES_DB .env | cut -d= -f2)
-  POSTGRES_USER=$(grep POSTGRES_USER .env | cut -d= -f2)
   POSTGRES_PASSWORD=$(grep POSTGRES_PASSWORD .env | cut -d= -f2)
-  POSTGRES_ROOT_PASSWORD=$(grep POSTGRES_ROOT_PASSWORD .env | cut -d= -f2)
-  POSTGRES_DATA_DIR=$(grep POSTGRES_DATA_DIR .env | cut -d= -f2)
   NETWORK_NAME=$(grep NETWORK_NAME .env | cut -d= -f2)
-  
-  # Check if container is already running (idempotency)
+
   if docker ps --format 'table {{.Names}}' | grep -q "^${POSTGRES_CONTAINER_NAME}$"; then
-    print_info "Container ${POSTGRES_CONTAINER_NAME} is already running, skipping container creation"
     return 0
   fi
-  
-  # Stop and remove existing stopped container
+
   if docker ps -a --format 'table {{.Names}}' | grep -q "^${POSTGRES_CONTAINER_NAME}$"; then
-    print_warn "Stopping and removing existing container: ${POSTGRES_CONTAINER_NAME}"
     docker stop "${POSTGRES_CONTAINER_NAME}" > /dev/null 2>&1 || true
     docker rm "${POSTGRES_CONTAINER_NAME}" > /dev/null 2>&1 || true
   fi
-  
-  print_info "Starting PostgreSQL container..."
-  
+
   VOLUME_NAME="${POSTGRES_CONTAINER_NAME}-data"
 
-  docker run -d \
+  if docker run -d \
     --name "${POSTGRES_CONTAINER_NAME}" \
     --network "${NETWORK_NAME}" \
     -p "${POSTGRES_PORT}:5432" \
-    -e POSTGRES_DB="${POSTGRES_DB}" \
-    -e POSTGRES_USER="${POSTGRES_USER}" \
     -e POSTGRES_PASSWORD="${POSTGRES_PASSWORD}" \
     -v "${VOLUME_NAME}:/var/lib/postgresql/data" \
-    "postgres:${POSTGRES_VERSION}"
-  
-  print_info "PostgreSQL container started successfully"
+    "postgres:${POSTGRES_VERSION}" > /dev/null 2>&1; then
+    print_info "PostgreSQL container started successfully"
+  else
+    print_error "Failed to start PostgreSQL container"
+    return 1
+  fi
 }
 
 # Wait for PostgreSQL to be ready
 wait_for_postgres() {
   POSTGRES_CONTAINER_NAME=$(grep POSTGRES_CONTAINER_NAME .env | cut -d= -f2)
-  POSTGRES_USER=$(grep POSTGRES_USER .env | cut -d= -f2)
-  POSTGRES_DB=$(grep POSTGRES_DB .env | cut -d= -f2)
-  
-  print_info "Waiting for PostgreSQL to be ready..."
+
   max_attempts=30
   attempt=0
-  
+
   while [ $attempt -lt $max_attempts ]; do
-    if docker exec "${POSTGRES_CONTAINER_NAME}" pg_isready -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" > /dev/null 2>&1; then
-      print_info "PostgreSQL is ready!"
-      break
+    if docker exec "${POSTGRES_CONTAINER_NAME}" pg_isready -U postgres -d postgres > /dev/null 2>&1; then
+      print_info "PostgreSQL is ready"
+      return 0
     fi
     attempt=$((attempt + 1))
-    printf "."
     sleep 2
   done
-  
-  if [ $attempt -eq $max_attempts ]; then
-    print_warn "PostgreSQL may not be fully ready yet. Check logs with: docker logs ${POSTGRES_CONTAINER_NAME}"
-  fi
-  echo ""
+
+  print_error "PostgreSQL failed to start (timeout)"
+  return 1
 }
 
 # Setup PostgreSQL environment
@@ -547,19 +498,15 @@ setup_postgres() {
   create_postgres_volume
   start_postgres_container
   wait_for_postgres
-  
+
   POSTGRES_PORT=$(grep POSTGRES_PORT .env | cut -d= -f2)
-  POSTGRES_DB=$(grep POSTGRES_DB .env | cut -d= -f2)
-  POSTGRES_USER=$(grep POSTGRES_USER .env | cut -d= -f2)
   POSTGRES_CONTAINER_NAME=$(grep POSTGRES_CONTAINER_NAME .env | cut -d= -f2)
-  
+
   echo ""
   print_info "=== PostgreSQL Setup Complete ==="
-  print_info "Database: ${POSTGRES_DB}"
-  print_info "User: ${POSTGRES_USER}"
-  print_info "Connection: localhost:${POSTGRES_PORT}/${POSTGRES_DB}"
-  print_info "JDBC URL: jdbc:postgresql://localhost:${POSTGRES_PORT}/${POSTGRES_DB}"
-  print_info "Network: ${POSTGRES_CONTAINER_NAME} (accessible from TomEE container)"
+  print_info "Admin User: postgres"
+  print_info "Connection: localhost:${POSTGRES_PORT}/postgres"
+  print_info "Network: ${POSTGRES_CONTAINER_NAME}"
   echo ""
 }
 
@@ -592,90 +539,71 @@ start_mariadb_container() {
   MARIADB_CONTAINER_NAME=$(grep MARIADB_CONTAINER_NAME .env | cut -d= -f2)
   MARIADB_VERSION=$(grep MARIADB_VERSION .env | cut -d= -f2)
   MARIADB_PORT=$(grep MARIADB_PORT .env | cut -d= -f2)
-  MARIADB_DATABASE=$(grep MARIADB_DATABASE .env | cut -d= -f2)
-  MARIADB_USER=$(grep MARIADB_USER .env | cut -d= -f2)
-  MARIADB_PASSWORD=$(grep MARIADB_PASSWORD .env | cut -d= -f2)
   MARIADB_ROOT_PASSWORD=$(grep MARIADB_ROOT_PASSWORD .env | cut -d= -f2)
   MARIADB_DATA_DIR=$(grep MARIADB_DATA_DIR .env | cut -d= -f2)
   NETWORK_NAME=$(grep NETWORK_NAME .env | cut -d= -f2)
-  
-  # Check if container is already running (idempotency)
+
   if docker ps --format 'table {{.Names}}' | grep -q "^${MARIADB_CONTAINER_NAME}$"; then
-    print_info "Container ${MARIADB_CONTAINER_NAME} is already running, skipping container creation"
     return 0
   fi
-  
-  # Stop and remove existing stopped container
+
   if docker ps -a --format 'table {{.Names}}' | grep -q "^${MARIADB_CONTAINER_NAME}$"; then
-    print_warn "Stopping and removing existing container: ${MARIADB_CONTAINER_NAME}"
     docker stop "${MARIADB_CONTAINER_NAME}" > /dev/null 2>&1 || true
     docker rm "${MARIADB_CONTAINER_NAME}" > /dev/null 2>&1 || true
   fi
-  
-  print_info "Starting MariaDB container..."
-  
-  docker run -d \
+
+  if docker run -d \
     --name "${MARIADB_CONTAINER_NAME}" \
     --network "${NETWORK_NAME}" \
     -p "${MARIADB_PORT}:3306" \
-    -e MARIADB_DATABASE="${MARIADB_DATABASE}" \
-    -e MARIADB_USER="${MARIADB_USER}" \
-    -e MARIADB_PASSWORD="${MARIADB_PASSWORD}" \
     -e MARIADB_ROOT_PASSWORD="${MARIADB_ROOT_PASSWORD}" \
     -v "${MARIADB_DATA_DIR}:/var/lib/mysql" \
-    "mariadb:${MARIADB_VERSION}"
-  
-  print_info "MariaDB container started successfully"
+    "mariadb:${MARIADB_VERSION}" > /dev/null 2>&1; then
+    print_info "MariaDB container started successfully"
+  else
+    print_error "Failed to start MariaDB container"
+    return 1
+  fi
 }
 
 # Wait for MariaDB to be ready
 wait_for_mariadb() {
   MARIADB_CONTAINER_NAME=$(grep MARIADB_CONTAINER_NAME .env | cut -d= -f2)
-  MARIADB_USER=$(grep MARIADB_USER .env | cut -d= -f2)
-  MARIADB_DATABASE=$(grep MARIADB_DATABASE .env | cut -d= -f2)
-  
-  print_info "Waiting for MariaDB to be ready..."
+
   max_attempts=30
   attempt=0
-  
+
   while [ $attempt -lt $max_attempts ]; do
     if docker exec "${MARIADB_CONTAINER_NAME}" mysqladmin ping -h localhost > /dev/null 2>&1; then
-      print_info "MariaDB is ready!"
-      break
+      print_info "MariaDB is ready"
+      return 0
     fi
     attempt=$((attempt + 1))
-    printf "."
     sleep 2
   done
-  
-  if [ $attempt -eq $max_attempts ]; then
-    print_warn "MariaDB may not be fully ready yet. Check logs with: docker logs ${MARIADB_CONTAINER_NAME}"
-  fi
-  echo ""
+
+  print_error "MariaDB failed to start (timeout)"
+  return 1
 }
 
 # Setup MariaDB environment
 setup_mariadb() {
   print_header "MariaDB Database Setup"
   echo ""
-  
+
   pull_mariadb_image
   create_mariadb_directories
   start_mariadb_container
   wait_for_mariadb
-  
+
   MARIADB_PORT=$(grep MARIADB_PORT .env | cut -d= -f2)
-  MARIADB_DATABASE=$(grep MARIADB_DATABASE .env | cut -d= -f2)
-  MARIADB_USER=$(grep MARIADB_USER .env | cut -d= -f2)
   MARIADB_CONTAINER_NAME=$(grep MARIADB_CONTAINER_NAME .env | cut -d= -f2)
-  
+
   echo ""
   print_info "=== MariaDB Setup Complete ==="
-  print_info "Database: ${MARIADB_DATABASE}"
-  print_info "User: ${MARIADB_USER}"
-  print_info "Connection: localhost:${MARIADB_PORT}/${MARIADB_DATABASE}"
-  print_info "JDBC URL: jdbc:mariadb://localhost:${MARIADB_PORT}/${MARIADB_DATABASE}"
-  print_info "Network: ${MARIADB_CONTAINER_NAME} (accessible from TomEE container)"
+  print_info "Admin User: root"
+  print_info "Connection: localhost:${MARIADB_PORT}/mysql"
+  print_info "Network: ${MARIADB_CONTAINER_NAME}"
   echo ""
 }
 
@@ -944,44 +872,23 @@ create_webapp_database() {
 create_postgres_webapp_database() {
   local app_name="$1"
   local container_name=$(grep POSTGRES_CONTAINER_NAME .env | cut -d= -f2)
-  local admin_user=$(grep POSTGRES_USER .env | cut -d= -f2)
   local admin_password=$(grep POSTGRES_PASSWORD .env | cut -d= -f2)
 
-  print_info "Creating PostgreSQL database '$app_name' with user '$app_name'..."
-
-  # Connect to PostgreSQL via network using admin credentials
   export PGPASSWORD="$admin_password"
 
-  # Create user and database using network connection
-  # Check if user exists first
-  if psql -h "$container_name" -p 5432 -U "$admin_user" -d postgres -t -c "SELECT 1 FROM pg_roles WHERE rolname='${app_name}';" | grep -q 1; then
-    print_error "User '${app_name}' already exists in PostgreSQL. Please choose a different webapp name or manually drop the user first."
+  if psql -h "$container_name" -p 5432 -U postgres -d postgres -t -c "SELECT 1 FROM pg_roles WHERE rolname='${app_name}';" 2>/dev/null | grep -q 1; then
+    print_error "User '${app_name}' already exists"
     return 1
   fi
 
-  # Create user
-  psql -h "$container_name" -p 5432 -U "$admin_user" -d postgres -c "CREATE USER ${app_name} WITH PASSWORD 'secret';" || {
-    print_error "Failed to create user '${app_name}'"
+  if psql -h "$container_name" -p 5432 -U postgres -d postgres -c "CREATE USER ${app_name} WITH PASSWORD 'secret'; CREATE DATABASE ${app_name} OWNER ${app_name}; GRANT ALL PRIVILEGES ON DATABASE ${app_name} TO ${app_name};" > /dev/null 2>&1; then
+    unset PGPASSWORD
+    print_info "PostgreSQL database '$app_name' created successfully"
+  else
+    unset PGPASSWORD
+    print_error "Failed to create PostgreSQL database '$app_name'"
     return 1
-  }
-
-  # Create database
-  psql -h "$container_name" -p 5432 -U "$admin_user" -d postgres -c "CREATE DATABASE ${app_name} OWNER ${app_name};" || {
-    print_error "Failed to create database '${app_name}'"
-    return 1
-  }
-
-  # Grant privileges
-  psql -h "$container_name" -p 5432 -U "$admin_user" -d postgres -c "GRANT ALL PRIVILEGES ON DATABASE ${app_name} TO ${app_name};" || {
-    print_error "Failed to grant privileges to user '${app_name}'"
-    return 1
-  }
-
-  # Unset password variable for security
-  unset PGPASSWORD
-
-  print_info "PostgreSQL setup complete for webapp '$app_name'"
-  print_info "Database: $app_name | User: $app_name | Password: secret"
+  fi
 }
 
 # Create MariaDB database and user for webapp
@@ -1031,40 +938,26 @@ create_sqlite_webapp_database() {
 remove_postgres_webapp_database() {
   local app_name="$1"
   local container_name=$(grep POSTGRES_CONTAINER_NAME .env | cut -d= -f2)
-  local admin_user=$(grep POSTGRES_USER .env | cut -d= -f2)
   local admin_password=$(grep POSTGRES_PASSWORD .env | cut -d= -f2)
 
-  print_info "Removing PostgreSQL database '$app_name' and user '$app_name'..."
-
-  # Connect to PostgreSQL via network using admin credentials
   export PGPASSWORD="$admin_password"
 
-  # Terminate all connections to the database
-  docker exec "$container_name" psql -U "$admin_user" -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$app_name';" 2>/dev/null || true
+  docker exec "$container_name" psql -U postgres -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$app_name';" > /dev/null 2>&1 || true
+  docker exec "$container_name" psql -U postgres -d postgres -c "DROP DATABASE IF EXISTS $app_name; DROP USER IF EXISTS $app_name;" > /dev/null 2>&1
 
-  # Drop database
-  docker exec "$container_name" psql -U "$admin_user" -d postgres -c "DROP DATABASE IF EXISTS $app_name;" 2>/dev/null || print_info "Database '$app_name' not found"
-
-  # Drop user
-  docker exec "$container_name" psql -U "$admin_user" -d postgres -c "DROP USER IF EXISTS $app_name;" 2>/dev/null || print_info "User '$app_name' not found"
-
-  print_info "PostgreSQL cleanup complete for webapp '$app_name'"
+  unset PGPASSWORD
+  print_info "PostgreSQL database '$app_name' removed"
 }
 
 # Remove MariaDB database and user for webapp
 remove_mariadb_webapp_database() {
   local app_name="$1"
   local container_name=$(grep MARIADB_CONTAINER_NAME .env | cut -d= -f2)
-  local admin_user=$(grep MARIADB_USER .env | cut -d= -f2)
-  local admin_password=$(grep MARIADB_PASSWORD .env | cut -d= -f2)
+  local root_password=$(grep MARIADB_ROOT_PASSWORD .env | cut -d= -f2)
 
-  print_info "Removing MariaDB database '$app_name' and user '$app_name'..."
+  docker exec "$container_name" mysql -u root -p"$root_password" -e "DROP DATABASE IF EXISTS $app_name; DROP USER IF EXISTS '$app_name'@'%';" > /dev/null 2>&1
 
-  # Drop database and user
-  docker exec "$container_name" mysql -u "$admin_user" -p"$admin_password" -e "DROP DATABASE IF EXISTS $app_name;" 2>/dev/null || print_info "Database '$app_name' not found"
-  docker exec "$container_name" mysql -u "$admin_user" -p"$admin_password" -e "DROP USER IF EXISTS '$app_name'@'%';" 2>/dev/null || print_info "User '$app_name' not found"
-
-  print_info "MariaDB cleanup complete for webapp '$app_name'"
+  print_info "MariaDB database '$app_name' removed"
 }
 
 # Remove SQLite database for webapp
@@ -1188,37 +1081,23 @@ remove_webapp() {
     exit 1
   fi
 
-  print_info "Removing webapp '$app_name'..."
-
-  # Determine database type by checking context.xml
   local context_xml="projects/$app_name/src/main/resources/META-INF/context.xml"
   if [ -f "$context_xml" ]; then
     if grep -q "postgresql" "$context_xml"; then
-      print_info "Detected PostgreSQL database, removing..."
       remove_postgres_webapp_database "$app_name"
     elif grep -q "mariadb\|mysql" "$context_xml"; then
-      print_info "Detected MariaDB database, removing..."
       remove_mariadb_webapp_database "$app_name"
     elif grep -q "sqlite" "$context_xml"; then
-      print_info "Detected SQLite database, removing..."
       remove_sqlite_webapp_database "$app_name"
-    else
-      print_info "No database configuration detected"
     fi
-  else
-    print_info "No context.xml found, skipping database cleanup"
   fi
 
-  # Remove deployed webapp from TomEE
-  print_info "Removing deployed webapp from TomEE..."
   rm -rf "/usr/local/tomee/webapps/${app_name}" 2>/dev/null || true
   rm -f "/usr/local/tomee/webapps/${app_name}.war" 2>/dev/null || true
-
-  # Remove project directory
-  print_info "Removing project directory..."
+  rm -rf "/usr/local/tomee/work/Catalina/localhost/${app_name}" 2>/dev/null || true
   rm -rf "projects/$app_name"
 
-  print_info "Webapp '$app_name' and associated resources removed successfully"
+  print_info "Webapp '$app_name' removed successfully"
 }
 
 # Remove library
@@ -1547,35 +1426,30 @@ main() {
     exit 0
   fi
 
+  if [ -n "$CREATE_LIBRARY" ]; then
+    create_library "$CREATE_LIBRARY" "$WITH_DATABASE"
+    exit 0
+  fi
+
   if [ -n "$REMOVE_LIBRARY" ]; then
     remove_library "$REMOVE_LIBRARY"
     exit 0
   fi
 
-  if [ -n "$CREATE_LIBRARY" ]; then
-    create_library "$CREATE_LIBRARY" "$WITH_DATABASE"
-    exit 0
-  fi
-  
-  print_header "Java Web Application Environment Setup"
+  print_header "TomEEx Environment Setup"
   echo ""
-  # Phase 1: Check if .env exists - if not, create it and exit
+  
+  #Check if .env exists - if not, create it and exit
   if [ ! -f ".env" ]; then
     print_info ".env file not found, creating configuration file..."
     create_env_file
     echo ""
-    print_info "=== Configuration Created ==="
-    print_info "The .env configuration file has been created with default values."
-    print_info "Please review and customize the settings in .env if needed."
-    print_info "Then run the installation script again to proceed with setup."
-    echo ""
-    print_warn "Installation paused. Run './install.sh' again to continue."
+    print_info "The .env file has been created."
+    print_warn "Run './install.sh' again to continue."
     return 0
   fi
-  # Phase 2: .env exists, proceed with full installation
-  print_info "Configuration file .env found, proceeding with installation..."
-  echo ""
-  # Setup steps
+  
+  # .env exists, proceed with full installation
   check_docker
   create_basic_directories
   create_gitignore
