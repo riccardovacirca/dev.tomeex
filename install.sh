@@ -36,7 +36,7 @@ check_archetype_installed() {
   local artifactId="$2"
   local version="$3"
 
-  # Convert groupId to path format (com.example.archetypes -> com/example/archetypes)
+  # Convert groupId to path format (dev.tomeex.archetypes -> dev/tomeex/archetypes)
   local groupPath=$(echo "$groupId" | sed 's/\./\//g')
   local archetypePath="$HOME/.m2/repository/$groupPath/$artifactId/$version"
 
@@ -49,7 +49,7 @@ ensure_archetype_installed() {
   local archetypes_dir="archetypes"
 
   # Check if archetype is already installed
-  if check_archetype_installed "com.example.archetypes" "$archetype_name" "1.0.0"; then
+  if check_archetype_installed "dev.tomeex.archetypes" "$archetype_name" "1.0.0"; then
     print_info "Archetype '$archetype_name' already installed"
     return 0
   fi
@@ -1121,7 +1121,7 @@ create_webapp() {
     mvn archetype:generate \
       -DgroupId="$group_id" \
       -DartifactId="$app_name" \
-      -DarchetypeGroupId=com.example.archetypes \
+      -DarchetypeGroupId=dev.tomeex.archetypes \
       -DarchetypeArtifactId=tomeex-app-database-archetype \
       -DarchetypeVersion=1.0.0 \
       -DdbType="$db_type" \
@@ -1140,7 +1140,7 @@ create_webapp() {
     mvn archetype:generate \
       -DgroupId="$group_id" \
       -DartifactId="$app_name" \
-      -DarchetypeGroupId=com.example.archetypes \
+      -DarchetypeGroupId=dev.tomeex.archetypes \
       -DarchetypeArtifactId=tomeex-app-archetype \
       -DarchetypeVersion=1.0.0 \
       -DinteractiveMode=false \
@@ -1278,7 +1278,7 @@ create_library() {
     mvn archetype:generate \
       -DgroupId="$group_id" \
       -DartifactId="$lib_name" \
-      -DarchetypeGroupId=com.example.archetypes \
+      -DarchetypeGroupId=dev.tomeex.archetypes \
       -DarchetypeArtifactId=tomeex-lib-database-archetype \
       -DarchetypeVersion=1.0.0 \
       -DinteractiveMode=false \
@@ -1294,7 +1294,7 @@ create_library() {
     mvn archetype:generate \
       -DgroupId="$group_id" \
       -DartifactId="$lib_name" \
-      -DarchetypeGroupId=com.example.archetypes \
+      -DarchetypeGroupId=dev.tomeex.archetypes \
       -DarchetypeArtifactId=tomeex-lib-archetype \
       -DarchetypeVersion=1.0.0 \
       -DinteractiveMode=false \

@@ -5,7 +5,7 @@
          http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     
-    <groupId>com.example.archetypes</groupId>
+    <groupId>dev.tomeex.archetypes</groupId>
     <artifactId>tomeex-lib-archetype</artifactId>
     <version>1.0.0</version>
     <packaging>maven-archetype</packaging>

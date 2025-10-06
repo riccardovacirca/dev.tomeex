@@ -117,7 +117,7 @@ clean:
 
 install:
 	@echo "Removing archetypes from local Maven repository..."
-	@rm -rf ~/.m2/repository/com/example/archetypes/tomeex-*
+	@rm -rf ~/.m2/repository/com/example/archetypes/tomeex-* ~/.m2/repository/dev/tomeex/archetypes/tomeex-*
 	@echo "Rebuilding and installing archetypes..."
 	@cd archetypes && for archetype in */; do \
 		echo "Installing $$archetype"; \
