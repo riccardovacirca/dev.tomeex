@@ -1,12 +1,10 @@
-# Main Project Makefile
 
 MAKEFLAGS += --no-print-directory
 
 PROJECTS_DIR = projects
 
-.PHONY: build deploy help app lib remove dbcli install clean list default
+.PHONY: help app lib remove archetypes list default
 
-# Default target - shows help
 default:
 	@$(MAKE) help
 
@@ -16,46 +14,11 @@ help:
 	@echo "  make lib name=<project_name> id=<groupId> [db=true]"
 	@echo "  make remove name=<project_name>"
 	@echo "  make list"
-	@echo "  make build name=<project_name>"
-	@echo "  make deploy name=<project_name>"
-	@echo "  make dbcli name=<project_name>"
-	@echo "  make install"
-	@echo "  make clean"
+	@echo "  make archetypes"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make app name=myapi id=com.example db=postgres"
 	@echo "  make lib name=mylib id=com.example db=true"
-	@echo "  make dbcli name=myapi"
-
-build:
-	@if [ -z "$(name)" ]; then \
-		echo "Error: name parameter required. Usage: make build name=<project_name>"; \
-		exit 1; \
-	fi
-	@if [ ! -d "$(PROJECTS_DIR)/$(name)" ]; then \
-		echo "Error: Project '$(name)' not found in $(PROJECTS_DIR)/ directory"; \
-		exit 1; \
-	fi
-	@if [ ! -f "$(PROJECTS_DIR)/$(name)/Makefile" ]; then \
-		echo "Error: No Makefile found in $(PROJECTS_DIR)/$(name)/ directory"; \
-		exit 1; \
-	fi
-	@cd $(PROJECTS_DIR)/$(name) && $(MAKE) build
-
-deploy:
-	@if [ -z "$(name)" ]; then \
-		echo "Error: name parameter required. Usage: make deploy name=<project_name>"; \
-		exit 1; \
-	fi
-	@if [ ! -d "$(PROJECTS_DIR)/$(name)" ]; then \
-		echo "Error: Project '$(name)' not found in $(PROJECTS_DIR)/ directory"; \
-		exit 1; \
-	fi
-	@if [ ! -f "$(PROJECTS_DIR)/$(name)/Makefile" ]; then \
-		echo "Error: No Makefile found in $(PROJECTS_DIR)/$(name)/ directory"; \
-		exit 1; \
-	fi
-	@cd $(PROJECTS_DIR)/$(name) && $(MAKE) deploy
 
 app:
 	@if [ -z "$(name)" ]; then \
@@ -110,12 +73,9 @@ remove:
 		exit 1; \
 	fi
 
-clean:
+archetypes:
 	@echo "Cleaning archetype target directories..."
 	@rm -rf archetypes/*/target
-	@echo "Archetype target directories cleaned"
-
-install:
 	@echo "Removing archetypes from local Maven repository..."
 	@rm -rf ~/.m2/repository/com/example/archetypes/tomeex-* ~/.m2/repository/dev/tomeex/archetypes/tomeex-*
 	@echo "Rebuilding and installing archetypes..."
@@ -156,18 +116,3 @@ list:
 		echo "No projects found in $(PROJECTS_DIR)/"; \
 		echo ""; \
 	fi
-
-dbcli:
-	@if [ -z "$(name)" ]; then \
-		echo "Error: name parameter required. Usage: make dbcli name=<project_name>"; \
-		exit 1; \
-	fi
-	@if [ ! -d "$(PROJECTS_DIR)/$(name)" ]; then \
-		echo "Error: Project '$(name)' not found in $(PROJECTS_DIR)/ directory"; \
-		exit 1; \
-	fi
-	@if [ ! -f "$(PROJECTS_DIR)/$(name)/Makefile" ]; then \
-		echo "Error: No Makefile found in $(PROJECTS_DIR)/$(name)/ directory"; \
-		exit 1; \
-	fi
-	@cd $(PROJECTS_DIR)/$(name) && $(MAKE) dbcli

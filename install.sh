@@ -30,36 +30,29 @@ print_header() {
   printf "[tomeex] %s\n" "$1"
 }
 
-# Check if an archetype is installed in the local Maven repository
 check_archetype_installed() {
   local groupId="$1"
   local artifactId="$2"
   local version="$3"
-
   # Convert groupId to path format (dev.tomeex.archetypes -> dev/tomeex/archetypes)
   local groupPath=$(echo "$groupId" | sed 's/\./\//g')
   local archetypePath="$HOME/.m2/repository/$groupPath/$artifactId/$version"
-
   [ -d "$archetypePath" ]
 }
 
-# Install a specific archetype if not already present
 ensure_archetype_installed() {
   local archetype_name="$1"
   local archetypes_dir="archetypes"
-
   # Check if archetype is already installed
   if check_archetype_installed "dev.tomeex.archetypes" "$archetype_name" "1.0.0"; then
     print_info "Archetype '$archetype_name' already installed"
     return 0
   fi
-
   # Check if archetype directory exists
   if [ ! -d "$archetypes_dir/$archetype_name" ]; then
     print_error "Archetype directory not found: $archetypes_dir/$archetype_name"
     exit 1
   fi
-
   # Install the archetype
   print_info "Installing archetype: $archetype_name"
   cd "$archetypes_dir/$archetype_name" || exit 1
@@ -80,14 +73,10 @@ TOMEE_VERSION=9-jre17-plume
 # Network Configuration
 NETWORK_NAME=tomeex-net
 HOST_PORT=9292
-MANAGER_PORT=9292
-TOMEE_INTERNAL_PORT=8080
 
 # Java Application Settings
-JAVA_VERSION=17
 HEAP_SIZE_MIN=256m
 HEAP_SIZE_MAX=1024m
-TIMEZONE=Europe/Rome
 
 # Git Configuration (optional)
 # GIT_USER=Your Name
@@ -95,28 +84,21 @@ TIMEZONE=Europe/Rome
 
 # TomEE Manager Configuration
 ADMIN_USER=admin
-ADMIN_PASSWORD=admin123
+ADMIN_PASSWORD=secret
 MANAGER_USER=manager
-MANAGER_PASSWORD=manager123
-
-# Logging Configuration
-LOG_DIR=logs
-LOG_FILE=tomeex.log
-LOG_ROTATION=daily
+MANAGER_PASSWORD=secret
 
 # PostgreSQL Configuration (optional)
 POSTGRES_CONTAINER_NAME=tomeex-postgres
 POSTGRES_VERSION=latest
 POSTGRES_PORT=15432
 POSTGRES_PASSWORD=devpass123
-POSTGRES_DATA_DIR=postgres-data
 
 # MariaDB Configuration (optional)
 MARIADB_CONTAINER_NAME=tomeex-mariadb
 MARIADB_VERSION=latest
 MARIADB_PORT=13306
-MARIADB_ROOT_PASSWORD=rootpass123
-MARIADB_DATA_DIR=mariadb-data
+MARIADB_ROOT_PASSWORD=secret
 
 # SQLite Configuration (optional)
 SQLITE_DATA_DIR=sqlite-data
@@ -140,7 +122,6 @@ create_basic_directories() {
   print_info "Project directories created"
 }
 
-# Create .gitignore file
 create_gitignore() {
   if [ ! -f ".gitignore" ]; then
     print_info "Creating .gitignore file..."
@@ -166,27 +147,17 @@ EOF
   fi
 }
 
-# Create projects folder
 create_projects_folder() {
-  if [ ! -d "projects" ]; then
-    print_info "Creating projects folder..."
-    mkdir -p projects
-    print_info "projects folder file created"
-  else
-    print_info "projects folder already exists, skipping creation"
-  fi
+  mkdir -p projects
 }
 
-# Create Docker network if it doesn't exist
 create_docker_network() {
   NETWORK_NAME=$(grep NETWORK_NAME .env | cut -d= -f2)
-  
   # Check if network already exists (idempotency)
   if docker network inspect "$NETWORK_NAME" > /dev/null 2>&1; then
     print_info "Docker network $NETWORK_NAME already exists, skipping creation"
     return 0
   fi
-  
   print_info "Creating Docker network: $NETWORK_NAME"
   docker network create "$NETWORK_NAME"
   print_info "Docker network created successfully"
@@ -251,31 +222,24 @@ EOF
   print_info "TomEE configuration created"
 }
 
-# Copy default TomEE configuration
 copy_default_config() {
-  print_info "Copying default TomEE configuration..."
   TOMEE_VERSION=$(grep TOMEE_VERSION .env | cut -d= -f2)
+  # Check if all config files already exist
+  if [ -f "conf/server.xml" ] && [ -f "conf/web.xml" ] && \
+     [ -f "conf/logging.properties" ] && [ -f "conf/catalina.properties" ] && \
+     [ -d "webapps/manager" ]; then
+    return 0
+  fi
+  print_info "Copying default TomEE configuration..."
   # Create temporary container to copy default configs
   temp_container_id=$(docker create "tomee:$TOMEE_VERSION")
-  # Copy default server.xml if it doesn't exist
-  if [ ! -f "conf/server.xml" ]; then
-    docker cp "$temp_container_id:/usr/local/tomee/conf/server.xml" "conf/"
-  fi
-  # Copy other essential config files
-  if [ ! -f "conf/web.xml" ]; then
-      docker cp "$temp_container_id:/usr/local/tomee/conf/web.xml" "conf/"
-  fi
-  if [ ! -f "conf/logging.properties" ]; then
-    docker cp "$temp_container_id:/usr/local/tomee/conf/logging.properties" "conf/"
-  fi
-  if [ ! -f "conf/catalina.properties" ]; then
-    docker cp "$temp_container_id:/usr/local/tomee/conf/catalina.properties" "conf/"
-  fi
-  # Copy default webapps (manager, docs, ROOT, etc.)
-  if [ ! -d "webapps/manager" ]; then
-    print_info "Copying default TomEE webapps..."
-    docker cp "$temp_container_id:/usr/local/tomee/webapps/." "webapps/"
-  fi
+  # Copy config files if they don't exist
+  [ ! -f "conf/server.xml" ] && docker cp "$temp_container_id:/usr/local/tomee/conf/server.xml" "conf/" 2>/dev/null
+  [ ! -f "conf/web.xml" ] && docker cp "$temp_container_id:/usr/local/tomee/conf/web.xml" "conf/" 2>/dev/null
+  [ ! -f "conf/logging.properties" ] && docker cp "$temp_container_id:/usr/local/tomee/conf/logging.properties" "conf/" 2>/dev/null
+  [ ! -f "conf/catalina.properties" ] && docker cp "$temp_container_id:/usr/local/tomee/conf/catalina.properties" "conf/" 2>/dev/null
+  # Copy default webapps if needed
+  [ ! -d "webapps/manager" ] && docker cp "$temp_container_id:/usr/local/tomee/webapps/." "webapps/" 2>/dev/null
   # Remove temporary container
   docker rm "$temp_container_id" > /dev/null
   print_info "Default TomEE configuration copied"
@@ -283,81 +247,63 @@ copy_default_config() {
 
 start_container() {
   CONTAINER_NAME=$(grep "^CONTAINER_NAME=" .env | cut -d= -f2)
+  # Se il container esiste già (running o stopped), prova ad avviarlo
+  if docker ps -a --format 'table {{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
+    print_info "Starting existing container: ${CONTAINER_NAME}"
+    docker start "${CONTAINER_NAME}" > /dev/null 2>&1
+    return 0
+  fi
+  # Il container non esiste, creane uno nuovo
   HOST_PORT=$(grep HOST_PORT .env | cut -d= -f2)
   TOMEE_VERSION=$(grep TOMEE_VERSION .env | cut -d= -f2)
   HEAP_SIZE_MIN=$(grep HEAP_SIZE_MIN .env | cut -d= -f2)
   HEAP_SIZE_MAX=$(grep HEAP_SIZE_MAX .env | cut -d= -f2)
   PROJECT_DIR=$(pwd)
-  
-  # Check if container is already running (idempotency)
-  if docker ps --format 'table {{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
-    print_info "Container ${CONTAINER_NAME} is already running, skipping container creation"
-  else
-    # Stop and remove existing stopped container
-    if docker ps -a --format 'table {{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
-      print_warn "Stopping and removing existing container: ${CONTAINER_NAME}"
-      docker stop "${CONTAINER_NAME}" > /dev/null 2>&1 || true
-      docker rm "${CONTAINER_NAME}" > /dev/null 2>&1 || true
-    fi
-    
-    print_info "Starting TomEE container..."
-    NETWORK_NAME=$(grep NETWORK_NAME .env | cut -d= -f2)
-    
-    docker run -d \
-      --name "${CONTAINER_NAME}" \
-      --network "${NETWORK_NAME}" \
-      -p "${HOST_PORT}:8080" \
-      -v "${PROJECT_DIR}:/workspace" \
-      -w "/workspace" \
-      -v "${PROJECT_DIR}/webapps:/usr/local/tomee/webapps" \
-      -v "${PROJECT_DIR}/conf:/usr/local/tomee/conf" \
-      -v "${PROJECT_DIR}/logs:/usr/local/tomee/logs" \
-      -v "${PROJECT_DIR}/work:/usr/local/tomee/work" \
-      -v "${PROJECT_DIR}/temp:/usr/local/tomee/temp" \
-      -e CATALINA_OPTS="-Xmx${HEAP_SIZE_MAX} -Xms${HEAP_SIZE_MIN}" \
-      -e JAVA_HOME="/opt/java/openjdk" \
-      "tomee:${TOMEE_VERSION}"
-    
-    print_info "TomEE container started successfully"
-  fi
+  NETWORK_NAME=$(grep NETWORK_NAME .env | cut -d= -f2)
+  docker run -d \
+    --name "${CONTAINER_NAME}" \
+    --network "${NETWORK_NAME}" \
+    -p "${HOST_PORT}:8080" \
+    -v "${PROJECT_DIR}:/workspace" \
+    -w "/workspace" \
+    -v "${PROJECT_DIR}/webapps:/usr/local/tomee/webapps" \
+    -v "${PROJECT_DIR}/conf:/usr/local/tomee/conf" \
+    -v "${PROJECT_DIR}/logs:/usr/local/tomee/logs" \
+    -v "${PROJECT_DIR}/work:/usr/local/tomee/work" \
+    -v "${PROJECT_DIR}/temp:/usr/local/tomee/temp" \
+    -e CATALINA_OPTS="-Xmx${HEAP_SIZE_MAX} -Xms${HEAP_SIZE_MIN}" \
+    -e JAVA_HOME="/opt/java/openjdk" \
+    "tomee:${TOMEE_VERSION}"
+  print_info "TomEE container started successfully"
 }
 
 wait_for_tomee() {
   HOST_PORT=$(grep HOST_PORT .env | cut -d= -f2)
   print_info "Waiting for TomEE to be ready..."
-  max_attempts=30
-  attempt=0
-  while [ $attempt -lt $max_attempts ]; do
+  for attempt in $(seq 1 30); do
     if curl -f -s "http://localhost:${HOST_PORT}" > /dev/null 2>&1; then
       print_info "TomEE is ready!"
-      break
+      return 0
     fi
-    attempt=$((attempt + 1))
     printf "."
     sleep 2
   done
-  if [ $attempt -eq $max_attempts ]; then
-    print_warn "TomEE may not be fully ready yet. Check logs with: docker logs $(grep "^CONTAINER_NAME=" .env | cut -d= -f2)"
-  fi
   echo ""
+  print_warn "TomEE startup timeout. Check: docker logs $(grep "^CONTAINER_NAME=" .env | cut -d= -f2)"
+  return 1
 }
 
 install_dev_tools() {
   CONTAINER_NAME=$(grep "^CONTAINER_NAME=" .env | cut -d= -f2)
   print_info "Installing development tools in container..."
-  docker exec "${CONTAINER_NAME}" apt-get update -qq > /dev/null 2>&1
-  if docker exec "${CONTAINER_NAME}" apt-get install -y --no-install-recommends \
-    make \
-    openjdk-17-jdk-headless \
-    git \
-    maven \
-    wget \
-    curl \
-    rsync \
-    postgresql-client > /dev/null 2>&1; then
-    docker exec "${CONTAINER_NAME}" bash -c "echo 'export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64' >> /root/.bashrc" 2>/dev/null || true
-    docker exec "${CONTAINER_NAME}" apt-get clean > /dev/null 2>&1
-    docker exec "${CONTAINER_NAME}" rm -rf /var/lib/apt/lists/* > /dev/null 2>&1
+  if docker exec "${CONTAINER_NAME}" sh -c "
+    apt-get update -qq > /dev/null 2>&1 && \
+    apt-get install -y --no-install-recommends \
+      make openjdk-17-jdk-headless git maven wget curl rsync postgresql-client > /dev/null 2>&1 && \
+    echo 'export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64' >> /root/.bashrc && \
+    apt-get clean > /dev/null 2>&1 && \
+    rm -rf /var/lib/apt/lists/*
+  " 2>/dev/null; then
     print_info "Development tools installed successfully"
   else
     print_error "Failed to install development tools"
@@ -368,93 +314,75 @@ install_dev_tools() {
 configure_git() {
   CONTAINER_NAME=$(grep "^CONTAINER_NAME=" .env | cut -d= -f2)
   # Check if git configuration is available
-  if grep -q "^GIT_USER=" .env && grep -q "^GIT_MAIL=" .env; then
-    GIT_USER=$(grep GIT_USER .env | cut -d= -f2)
-    GIT_MAIL=$(grep GIT_MAIL .env | cut -d= -f2)
-    if [ -n "$GIT_USER" ] && [ -n "$GIT_MAIL" ]; then
-      print_info "Configuring git in container..."
-      docker exec "${CONTAINER_NAME}" git config --global user.name "$GIT_USER"
-      docker exec "${CONTAINER_NAME}" git config --global user.email "$GIT_MAIL"
-      docker exec "${CONTAINER_NAME}" git config --global --add safe.directory /workspace
-      print_info "Git configured with user: $GIT_USER <$GIT_MAIL>"
-    fi
-  else
-    print_info "Git configuration not found in .env (optional: set GIT_USER and GIT_MAIL)"
+  if ! grep -q "^GIT_USER=" .env || ! grep -q "^GIT_MAIL=" .env; then
+    return 0
+  fi
+  GIT_USER=$(grep GIT_USER .env | cut -d= -f2)
+  GIT_MAIL=$(grep GIT_MAIL .env | cut -d= -f2)
+  if [ -n "$GIT_USER" ] && [ -n "$GIT_MAIL" ]; then
+    docker exec "${CONTAINER_NAME}" sh -c "
+      git config --global user.name '$GIT_USER' && \
+      git config --global user.email '$GIT_MAIL' && \
+      git config --global --add safe.directory /workspace
+    "
+    print_info "Git configured: $GIT_USER <$GIT_MAIL>"
   fi
 }
 
 configure_shell_aliases() {
   CONTAINER_NAME=$(grep "^CONTAINER_NAME=" .env | cut -d= -f2)
-  
-  print_info "Configuring shell aliases in container..."
-  
   # Check if cls alias already exists in .bashrc
   if docker exec "${CONTAINER_NAME}" grep -q "alias cls=" /root/.bashrc 2>/dev/null; then
-    print_info "Shell aliases already configured, skipping"
     return 0
   fi
-  
   # Add cls alias to .bashrc
-  docker exec "${CONTAINER_NAME}" sh -c "echo '' >> /root/.bashrc"
-  docker exec "${CONTAINER_NAME}" sh -c "echo '# Custom aliases' >> /root/.bashrc"
-  docker exec "${CONTAINER_NAME}" sh -c "echo 'alias cls=clear' >> /root/.bashrc"
-  
-  # Also add to current shell environment for immediate use
-  docker exec "${CONTAINER_NAME}" sh -c "alias cls=clear"
-  
-  print_info "Shell aliases configured successfully (cls -> clear)"
+  docker exec "${CONTAINER_NAME}" sh -c "cat >> /root/.bashrc << 'EOF'
+# Custom aliases
+alias cls=clear
+EOF
+"
+  print_info "Shell aliases configured successfully"
 }
 
-# Pull PostgreSQL image
 pull_postgres_image() {
   POSTGRES_VERSION=$(grep POSTGRES_VERSION .env | cut -d= -f2)
-  
   # Check if image already exists (idempotency)
   if docker image inspect "postgres:$POSTGRES_VERSION" > /dev/null 2>&1; then
     print_info "PostgreSQL $POSTGRES_VERSION image already exists, skipping pull"
     return 0
   fi
-  
   print_info "Pulling PostgreSQL $POSTGRES_VERSION image..."
   docker pull "postgres:$POSTGRES_VERSION"
   print_info "PostgreSQL image pulled successfully"
 }
 
-# Create PostgreSQL data volume
 create_postgres_volume() {
   POSTGRES_CONTAINER_NAME=$(grep POSTGRES_CONTAINER_NAME .env | cut -d= -f2)
   VOLUME_NAME="${POSTGRES_CONTAINER_NAME}-data"
-
   # Check if volume already exists (idempotency)
   if docker volume inspect "$VOLUME_NAME" > /dev/null 2>&1; then
     print_info "PostgreSQL volume $VOLUME_NAME already exists, skipping creation"
     return 0
   fi
-
   print_info "Creating PostgreSQL data volume..."
   docker volume create "$VOLUME_NAME"
   print_info "PostgreSQL volume created: $VOLUME_NAME"
 }
 
-# Start PostgreSQL container
 start_postgres_container() {
   POSTGRES_CONTAINER_NAME=$(grep POSTGRES_CONTAINER_NAME .env | cut -d= -f2)
+  # Se il container esiste già (running o stopped), prova ad avviarlo
+  if docker ps -a --format 'table {{.Names}}' | grep -q "^${POSTGRES_CONTAINER_NAME}$"; then
+    docker start "${POSTGRES_CONTAINER_NAME}" > /dev/null 2>&1
+    print_info "PostgreSQL container started successfully"
+    return 0
+  fi
+  # Il container non esiste, creane uno nuovo
   POSTGRES_VERSION=$(grep POSTGRES_VERSION .env | cut -d= -f2)
   POSTGRES_PORT=$(grep POSTGRES_PORT .env | cut -d= -f2)
   POSTGRES_PASSWORD=$(grep POSTGRES_PASSWORD .env | cut -d= -f2)
   NETWORK_NAME=$(grep NETWORK_NAME .env | cut -d= -f2)
-
-  if docker ps --format 'table {{.Names}}' | grep -q "^${POSTGRES_CONTAINER_NAME}$"; then
-    return 0
-  fi
-
-  if docker ps -a --format 'table {{.Names}}' | grep -q "^${POSTGRES_CONTAINER_NAME}$"; then
-    docker stop "${POSTGRES_CONTAINER_NAME}" > /dev/null 2>&1 || true
-    docker rm "${POSTGRES_CONTAINER_NAME}" > /dev/null 2>&1 || true
-  fi
-
   VOLUME_NAME="${POSTGRES_CONTAINER_NAME}-data"
-
   if docker run -d \
     --name "${POSTGRES_CONTAINER_NAME}" \
     --network "${NETWORK_NAME}" \
@@ -469,39 +397,28 @@ start_postgres_container() {
   fi
 }
 
-# Wait for PostgreSQL to be ready
 wait_for_postgres() {
   POSTGRES_CONTAINER_NAME=$(grep POSTGRES_CONTAINER_NAME .env | cut -d= -f2)
-
-  max_attempts=30
-  attempt=0
-
-  while [ $attempt -lt $max_attempts ]; do
+  for attempt in $(seq 1 30); do
     if docker exec "${POSTGRES_CONTAINER_NAME}" pg_isready -U postgres -d postgres > /dev/null 2>&1; then
       print_info "PostgreSQL is ready"
       return 0
     fi
-    attempt=$((attempt + 1))
     sleep 2
   done
-
-  print_error "PostgreSQL failed to start (timeout)"
+  print_error "PostgreSQL startup timeout"
   return 1
 }
 
-# Setup PostgreSQL environment
 setup_postgres() {
   print_header "PostgreSQL Database Setup"
   echo ""
-
   pull_postgres_image
   create_postgres_volume
   start_postgres_container
   wait_for_postgres
-
   POSTGRES_PORT=$(grep POSTGRES_PORT .env | cut -d= -f2)
   POSTGRES_CONTAINER_NAME=$(grep POSTGRES_CONTAINER_NAME .env | cut -d= -f2)
-
   echo ""
   print_info "=== PostgreSQL Setup Complete ==="
   print_info "Admin User: postgres"
@@ -510,54 +427,51 @@ setup_postgres() {
   echo ""
 }
 
-# Pull MariaDB image
 pull_mariadb_image() {
   MARIADB_VERSION=$(grep MARIADB_VERSION .env | cut -d= -f2)
-  
   # Check if image already exists (idempotency)
   if docker image inspect "mariadb:$MARIADB_VERSION" > /dev/null 2>&1; then
     print_info "MariaDB $MARIADB_VERSION image already exists, skipping pull"
     return 0
   fi
-  
   print_info "Pulling MariaDB $MARIADB_VERSION image..."
   docker pull "mariadb:$MARIADB_VERSION"
   print_info "MariaDB image pulled successfully"
 }
 
-# Create MariaDB data directory
-create_mariadb_directories() {
-  MARIADB_DATA_DIR=$(grep MARIADB_DATA_DIR .env | cut -d= -f2)
-  print_info "Creating MariaDB data directory..."
-  # Create directory with Docker to avoid sudo issues
-  docker run --rm -v "$MARIADB_DATA_DIR":/data alpine mkdir -p /data 2>/dev/null || mkdir -p "$MARIADB_DATA_DIR" 2>/dev/null || true
-  print_info "MariaDB directories created: $MARIADB_DATA_DIR"
+create_mariadb_volume() {
+  MARIADB_CONTAINER_NAME=$(grep MARIADB_CONTAINER_NAME .env | cut -d= -f2)
+  VOLUME_NAME="${MARIADB_CONTAINER_NAME}-data"
+  # Check if volume already exists (idempotency)
+  if docker volume inspect "$VOLUME_NAME" > /dev/null 2>&1; then
+    print_info "MariaDB volume $VOLUME_NAME already exists, skipping creation"
+    return 0
+  fi
+  print_info "Creating MariaDB data volume..."
+  docker volume create "$VOLUME_NAME"
+  print_info "MariaDB volume created: $VOLUME_NAME"
 }
 
-# Start MariaDB container
 start_mariadb_container() {
   MARIADB_CONTAINER_NAME=$(grep MARIADB_CONTAINER_NAME .env | cut -d= -f2)
+  # Se il container esiste già (running o stopped), prova ad avviarlo
+  if docker ps -a --format 'table {{.Names}}' | grep -q "^${MARIADB_CONTAINER_NAME}$"; then
+    docker start "${MARIADB_CONTAINER_NAME}" > /dev/null 2>&1
+    print_info "MariaDB container started successfully"
+    return 0
+  fi
+  # Il container non esiste, creane uno nuovo
   MARIADB_VERSION=$(grep MARIADB_VERSION .env | cut -d= -f2)
   MARIADB_PORT=$(grep MARIADB_PORT .env | cut -d= -f2)
   MARIADB_ROOT_PASSWORD=$(grep MARIADB_ROOT_PASSWORD .env | cut -d= -f2)
-  MARIADB_DATA_DIR=$(grep MARIADB_DATA_DIR .env | cut -d= -f2)
   NETWORK_NAME=$(grep NETWORK_NAME .env | cut -d= -f2)
-
-  if docker ps --format 'table {{.Names}}' | grep -q "^${MARIADB_CONTAINER_NAME}$"; then
-    return 0
-  fi
-
-  if docker ps -a --format 'table {{.Names}}' | grep -q "^${MARIADB_CONTAINER_NAME}$"; then
-    docker stop "${MARIADB_CONTAINER_NAME}" > /dev/null 2>&1 || true
-    docker rm "${MARIADB_CONTAINER_NAME}" > /dev/null 2>&1 || true
-  fi
-
+  VOLUME_NAME="${MARIADB_CONTAINER_NAME}-data"
   if docker run -d \
     --name "${MARIADB_CONTAINER_NAME}" \
     --network "${NETWORK_NAME}" \
     -p "${MARIADB_PORT}:3306" \
     -e MARIADB_ROOT_PASSWORD="${MARIADB_ROOT_PASSWORD}" \
-    -v "${MARIADB_DATA_DIR}:/var/lib/mysql" \
+    -v "${VOLUME_NAME}:/var/lib/mysql" \
     "mariadb:${MARIADB_VERSION}" > /dev/null 2>&1; then
     print_info "MariaDB container started successfully"
   else
@@ -566,39 +480,28 @@ start_mariadb_container() {
   fi
 }
 
-# Wait for MariaDB to be ready
 wait_for_mariadb() {
   MARIADB_CONTAINER_NAME=$(grep MARIADB_CONTAINER_NAME .env | cut -d= -f2)
-
-  max_attempts=30
-  attempt=0
-
-  while [ $attempt -lt $max_attempts ]; do
+  for attempt in $(seq 1 30); do
     if docker exec "${MARIADB_CONTAINER_NAME}" mysqladmin ping -h localhost > /dev/null 2>&1; then
       print_info "MariaDB is ready"
       return 0
     fi
-    attempt=$((attempt + 1))
     sleep 2
   done
-
-  print_error "MariaDB failed to start (timeout)"
+  print_error "MariaDB startup timeout"
   return 1
 }
 
-# Setup MariaDB environment
 setup_mariadb() {
   print_header "MariaDB Database Setup"
   echo ""
-
   pull_mariadb_image
-  create_mariadb_directories
+  create_mariadb_volume
   start_mariadb_container
   wait_for_mariadb
-
   MARIADB_PORT=$(grep MARIADB_PORT .env | cut -d= -f2)
   MARIADB_CONTAINER_NAME=$(grep MARIADB_CONTAINER_NAME .env | cut -d= -f2)
-
   echo ""
   print_info "=== MariaDB Setup Complete ==="
   print_info "Admin User: root"
@@ -607,58 +510,45 @@ setup_mariadb() {
   echo ""
 }
 
-# Create SQLite data directory
 create_sqlite_directories() {
   SQLITE_DATA_DIR=$(grep SQLITE_DATA_DIR .env | cut -d= -f2)
-  print_info "Creating SQLite data directory..."
   mkdir -p "$SQLITE_DATA_DIR"
-  print_info "SQLite directories created"
 }
 
-# Install SQLite3 in TomEE container
 install_sqlite_in_container() {
   CONTAINER_NAME=$(grep "^CONTAINER_NAME=" .env | cut -d= -f2)
-  
   # Check if SQLite3 is already installed
   if docker exec "${CONTAINER_NAME}" which sqlite3 > /dev/null 2>&1; then
     print_info "SQLite3 already installed in container"
     return 0
   fi
-  
   print_info "Installing SQLite3 in TomEE container..."
-  docker exec "${CONTAINER_NAME}" apt-get update -qq > /dev/null 2>&1
-  
-  if docker exec "${CONTAINER_NAME}" apt-get install -y --no-install-recommends sqlite3 > /dev/null 2>&1; then
+  if docker exec "${CONTAINER_NAME}" sh -c "
+    apt-get update -qq > /dev/null 2>&1 && \
+    apt-get install -y --no-install-recommends sqlite3 > /dev/null 2>&1 && \
+    apt-get clean > /dev/null 2>&1 && \
+    rm -rf /var/lib/apt/lists/*
+  " 2>/dev/null; then
     print_info "SQLite3 installed successfully"
   else
     print_warn "SQLite3 installation may have failed"
   fi
-  
-  # Clean up
-  docker exec "${CONTAINER_NAME}" apt-get clean > /dev/null 2>&1
-  docker exec "${CONTAINER_NAME}" rm -rf /var/lib/apt/lists/* > /dev/null 2>&1
 }
 
-# Setup SQLite environment
 setup_sqlite() {
   print_header "SQLite Database Setup"
   echo ""
-  
   create_sqlite_directories
   install_sqlite_in_container
-  
   SQLITE_DATABASE=$(grep SQLITE_DATABASE .env | cut -d= -f2)
   SQLITE_DATA_DIR=$(grep SQLITE_DATA_DIR .env | cut -d= -f2)
   CONTAINER_NAME=$(grep "^CONTAINER_NAME=" .env | cut -d= -f2)
-  
   # Create SQLite database file
   print_info "Creating SQLite database..."
   touch "${SQLITE_DATA_DIR}/${SQLITE_DATABASE}"
-  
   # Initialize database with a simple test table
   SQLITE_PATH="/workspace/${SQLITE_DATA_DIR}/${SQLITE_DATABASE}"
   docker exec "${CONTAINER_NAME}" sqlite3 "$SQLITE_PATH" "CREATE TABLE IF NOT EXISTS test (id INTEGER PRIMARY KEY, name TEXT);"
-  
   echo ""
   print_info "=== SQLite Setup Complete ==="
   print_info "Database: ${SQLITE_DATABASE}"
@@ -668,24 +558,20 @@ setup_sqlite() {
   echo ""
 }
 
-# Install Claude Code in TomEE container
 install_claude_code() {
   print_info "Starting Claude Code installation..."
   CONTAINER_NAME=$(grep "^CONTAINER_NAME=" .env | cut -d= -f2)
-
   # Check if development container is running
   if ! docker ps --format 'table {{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
     print_error "Development container '$CONTAINER_NAME' is not running"
     print_error "Cannot install Claude Code without development container"
     exit 1
   fi
-
   # Check if Claude Code is already installed
   if docker exec "$CONTAINER_NAME" bash -c "command -v claude >/dev/null 2>&1"; then
     print_info "Claude Code already installed"
     return 0
   fi
-
   # Execute installation inside container
   if ! docker exec -i "$CONTAINER_NAME" bash -c "
     export DEBIAN_FRONTEND=noninteractive && \
@@ -738,46 +624,15 @@ install_claude_code() {
     print_error "Claude Code installation failed"
     exit 1
   fi
-
-  # Create CLAUDE.md file in project root
-  if [ ! -f "CLAUDE.md" ]; then
-    cat > "CLAUDE.md" << 'EOF'
-# TomEE Development Environment
-
-This is a TomEE-based Java web development environment with Docker support.
-
-## Project Structure
-- `webapps/` - TomEE web applications
-- `projects/` - Maven projects and libraries
-- `conf/` - TomEE configuration
-- `logs/` - TomEE logs
-
-## Available Tools
-- TomEE 9 Plume with JRE 17
-- Maven for project management
-- PostgreSQL/MariaDB/SQLite support
-- Development tools (make, git, etc.)
-
-## Usage
-- Access TomEE Manager: http://localhost:9292/manager/html
-- Create projects: `make app name=myapp`
-- Build projects: `cd projects/myapp && mvn package`
-EOF
-    print_info "CLAUDE.md created in project root"
-  fi
-
   print_info "Claude Code installation completed successfully!"
   print_info "Run 'source ~/.bashrc' or start a new shell session inside container to use 'claude'"
 }
 
-# Create .env file for webapp with database connection parameters
 create_webapp_env_file() {
   local app_name="$1"
   local db_type="$2"
   local env_file="projects/$app_name/.env"
-
   print_info "Creating .env file for webapp '$app_name'..."
-
   case "$db_type" in
     postgres)
       local postgres_host=$(grep POSTGRES_CONTAINER_NAME .env | cut -d= -f2)
@@ -841,17 +696,13 @@ EOF
       return 1
       ;;
   esac
-
   print_info ".env file created: $env_file"
 }
 
-# Create database and user for webapp
 create_webapp_database() {
   local app_name="$1"
   local db_type="$2"
-
   print_info "Creating database and user for webapp '$app_name'..."
-
   case "$db_type" in
     postgres)
       create_postgres_webapp_database "$app_name"
@@ -868,19 +719,15 @@ create_webapp_database() {
   esac
 }
 
-# Create PostgreSQL database and user for webapp
 create_postgres_webapp_database() {
   local app_name="$1"
   local container_name=$(grep POSTGRES_CONTAINER_NAME .env | cut -d= -f2)
   local admin_password=$(grep POSTGRES_PASSWORD .env | cut -d= -f2)
-
   export PGPASSWORD="$admin_password"
-
   if psql -h "$container_name" -p 5432 -U postgres -d postgres -t -c "SELECT 1 FROM pg_roles WHERE rolname='${app_name}';" 2>/dev/null | grep -q 1; then
     print_error "User '${app_name}' already exists"
     return 1
   fi
-
   if psql -h "$container_name" -p 5432 -U postgres -d postgres -c "CREATE USER ${app_name} WITH PASSWORD 'secret'; CREATE DATABASE ${app_name} OWNER ${app_name}; GRANT ALL PRIVILEGES ON DATABASE ${app_name} TO ${app_name};" > /dev/null 2>&1; then
     unset PGPASSWORD
     print_info "PostgreSQL database '$app_name' created successfully"
@@ -891,82 +738,62 @@ create_postgres_webapp_database() {
   fi
 }
 
-# Create MariaDB database and user for webapp
 create_mariadb_webapp_database() {
   local app_name="$1"
   local container_name=$(grep MARIADB_CONTAINER_NAME .env | cut -d= -f2)
   local root_password=$(grep MARIADB_ROOT_PASSWORD .env | cut -d= -f2)
-
   print_info "Creating MariaDB database '$app_name' with user '$app_name'..."
-
   # Check if container is running
   if ! docker ps --format 'table {{.Names}}' | grep -q "^${container_name}$"; then
     print_error "MariaDB container '${container_name}' is not running. Start it with: ./install.sh --mariadb"
     return 1
   fi
-
   # Create user and database
   docker exec "${container_name}" mysql -u root -p"${root_password}" -e "CREATE DATABASE IF NOT EXISTS ${app_name};" 2>/dev/null
   docker exec "${container_name}" mysql -u root -p"${root_password}" -e "CREATE USER IF NOT EXISTS '${app_name}'@'%' IDENTIFIED BY 'secret';" 2>/dev/null
   docker exec "${container_name}" mysql -u root -p"${root_password}" -e "GRANT ALL PRIVILEGES ON ${app_name}.* TO '${app_name}'@'%';" 2>/dev/null
   docker exec "${container_name}" mysql -u root -p"${root_password}" -e "FLUSH PRIVILEGES;" 2>/dev/null
-
   print_info "MariaDB setup complete for webapp '$app_name'"
   print_info "Database: $app_name | User: $app_name | Password: secret"
 }
 
-# Create SQLite database for webapp
 create_sqlite_webapp_database() {
   local app_name="$1"
   local sqlite_data_dir=$(grep SQLITE_DATA_DIR .env | cut -d= -f2)
   local container_name=$(grep "^CONTAINER_NAME=" .env | cut -d= -f2)
-
   print_info "Creating SQLite database for webapp '$app_name'..."
-
   # Create SQLite database file
   touch "${sqlite_data_dir}/${app_name}.sqlite"
-
   # Initialize database with a simple test table
   local sqlite_path="/workspace/${sqlite_data_dir}/${app_name}.sqlite"
   docker exec "${container_name}" sqlite3 "$sqlite_path" "CREATE TABLE IF NOT EXISTS test (id INTEGER PRIMARY KEY, name TEXT);" 2>/dev/null
-
   print_info "SQLite setup complete for webapp '$app_name'"
   print_info "Database: ${app_name}.sqlite | Location: ${sqlite_data_dir}/${app_name}.sqlite"
 }
 
-# Remove PostgreSQL database and user for webapp
 remove_postgres_webapp_database() {
   local app_name="$1"
   local container_name=$(grep POSTGRES_CONTAINER_NAME .env | cut -d= -f2)
   local admin_password=$(grep POSTGRES_PASSWORD .env | cut -d= -f2)
-
   export PGPASSWORD="$admin_password"
-
   docker exec "$container_name" psql -U postgres -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$app_name';" > /dev/null 2>&1 || true
   docker exec "$container_name" psql -U postgres -d postgres -c "DROP DATABASE IF EXISTS $app_name; DROP USER IF EXISTS $app_name;" > /dev/null 2>&1
-
   unset PGPASSWORD
   print_info "PostgreSQL database '$app_name' removed"
 }
 
-# Remove MariaDB database and user for webapp
 remove_mariadb_webapp_database() {
   local app_name="$1"
   local container_name=$(grep MARIADB_CONTAINER_NAME .env | cut -d= -f2)
   local root_password=$(grep MARIADB_ROOT_PASSWORD .env | cut -d= -f2)
-
   docker exec "$container_name" mysql -u root -p"$root_password" -e "DROP DATABASE IF EXISTS $app_name; DROP USER IF EXISTS '$app_name'@'%';" > /dev/null 2>&1
-
   print_info "MariaDB database '$app_name' removed"
 }
 
-# Remove SQLite database for webapp
 remove_sqlite_webapp_database() {
   local app_name="$1"
   local sqlite_data_dir=$(grep SQLITE_DATA_DIR .env | cut -d= -f2)
-
   print_info "Removing SQLite database for webapp '$app_name'..."
-
   # Remove SQLite database file
   if [ -f "${sqlite_data_dir}/${app_name}.sqlite" ]; then
     rm -f "${sqlite_data_dir}/${app_name}.sqlite"
@@ -974,7 +801,6 @@ remove_sqlite_webapp_database() {
   else
     print_info "Database file not found: ${sqlite_data_dir}/${app_name}.sqlite"
   fi
-
   print_info "SQLite cleanup complete for webapp '$app_name'"
 }
 
@@ -983,17 +809,14 @@ create_webapp() {
   local app_name="$1"
   local db_type="$2"
   local group_id="${GROUP_ID:-com.example}"
-
   if [ -z "$app_name" ]; then
     print_error "Application name is required"
     exit 1
   fi
-
   if [ -d "projects/$app_name" ]; then
     print_error "Application '$app_name' already exists in projects/ directory"
     exit 1
   fi
-
   if [ -n "$db_type" ]; then
     # Validate database type
     case "$db_type" in
@@ -1004,13 +827,10 @@ create_webapp() {
         exit 1
         ;;
     esac
-
     # Install only the database archetype if needed
     ensure_archetype_installed "tomeex-app-database-archetype"
-
     print_info "Creating webapp '$app_name' with groupId '$group_id' and $db_type database..."
     cd projects || exit 1
-
     mvn archetype:generate \
       -DgroupId="$group_id" \
       -DartifactId="$app_name" \
@@ -1021,15 +841,12 @@ create_webapp() {
       -DinteractiveMode=false \
       -DarchetypeCatalog=local \
       -q
-
     cd ..
   else
     # Install only the simple webapp archetype if needed
     ensure_archetype_installed "tomeex-app-archetype"
-
     print_info "Creating webapp '$app_name' with groupId '$group_id'..."
     cd projects || exit 1
-
     mvn archetype:generate \
       -DgroupId="$group_id" \
       -DartifactId="$app_name" \
@@ -1042,45 +859,36 @@ create_webapp() {
 
     cd ..
   fi
-
   if [ ! -d "projects/$app_name" ]; then
     print_error "Failed to create webapp '$app_name'"
     exit 1
   fi
-
   # Create database and user for webapp if database type is specified
   if [ -n "$db_type" ]; then
     create_webapp_database "$app_name" "$db_type"
     create_webapp_env_file "$app_name" "$db_type"
   fi
-
   print_info "Created: projects/$app_name/ with groupId: $group_id"
-
   # Build and deploy the webapp
   print_info "Building and deploying $app_name..."
   cd "projects/$app_name" || exit 1
   make deploy
   cd - > /dev/null || exit 1
-
   # Show webapp URLs
   echo ""
   print_info "Deployed: http://localhost:9292/$app_name"
 }
 
-# Remove webapp and associated database
 remove_webapp() {
   local app_name="$1"
-
   if [ -z "$app_name" ]; then
     print_error "Application name is required"
     exit 1
   fi
-
   if [ ! -d "projects/$app_name" ]; then
     print_error "Application '$app_name' not found in projects/ directory"
     exit 1
   fi
-
   local context_xml="projects/$app_name/src/main/resources/META-INF/context.xml"
   if [ -f "$context_xml" ]; then
     if grep -q "postgresql" "$context_xml"; then
@@ -1091,46 +899,24 @@ remove_webapp() {
       remove_sqlite_webapp_database "$app_name"
     fi
   fi
-
   rm -rf "/usr/local/tomee/webapps/${app_name}" 2>/dev/null || true
   rm -f "/usr/local/tomee/webapps/${app_name}.war" 2>/dev/null || true
   rm -rf "/usr/local/tomee/work/Catalina/localhost/${app_name}" 2>/dev/null || true
   rm -rf "projects/$app_name"
-
   print_info "Webapp '$app_name' removed successfully"
 }
 
-# Remove library
 remove_library() {
   local lib_name="$1"
-
   if [ -z "$lib_name" ]; then
     print_error "Library name is required"
     exit 1
   fi
-
   if [ ! -d "projects/$lib_name" ]; then
     print_error "Library '$lib_name' not found in projects/ directory"
     exit 1
   fi
-
-  print_info "Removing library '$lib_name'..."
-
-  # Check if library has database support by looking for any database-related files
-  if [ -f "projects/$lib_name/src/main/resources/database.properties" ] || [ -f "projects/$lib_name/src/main/resources/META-INF/context.xml" ]; then
-    print_info "Library has database configuration, checking for cleanup..."
-
-    # For libraries, we don't create dedicated databases, but we should check for any configuration
-    local context_xml="projects/$lib_name/src/main/resources/META-INF/context.xml"
-    if [ -f "$context_xml" ]; then
-      print_info "Found database configuration in library, but libraries typically don't have dedicated databases"
-    fi
-  fi
-
-  # Remove project directory
-  print_info "Removing library directory..."
   rm -rf "projects/$lib_name"
-
   print_info "Library '$lib_name' removed successfully"
 }
 
@@ -1138,22 +924,18 @@ create_library() {
   local lib_name="$1"
   local with_db="$2"
   local group_id="${GROUP_ID:-com.example}"
-
   if [ -z "$lib_name" ]; then
     print_error "Library name is required"
     exit 1
   fi
-
   if [ -d "projects/$lib_name" ]; then
     print_error "Library '$lib_name' already exists in projects/ directory"
     exit 1
   fi
-
   if [ "$with_db" = "true" ]; then
     ensure_archetype_installed "tomeex-lib-database-archetype"
     print_info "Creating library '$lib_name' with multi-database support..."
     cd projects || exit 1
-
     mvn archetype:generate \
       -DgroupId="$group_id" \
       -DartifactId="$lib_name" \
@@ -1163,13 +945,11 @@ create_library() {
       -DinteractiveMode=false \
       -DarchetypeCatalog=local \
       -q
-
     cd ..
   else
     ensure_archetype_installed "tomeex-lib-archetype"
     print_info "Creating library '$lib_name'..."
     cd projects || exit 1
-
     mvn archetype:generate \
       -DgroupId="$group_id" \
       -DartifactId="$lib_name" \
@@ -1182,119 +962,114 @@ create_library() {
 
     cd ..
   fi
-
   if [ ! -d "projects/$lib_name" ]; then
     print_error "Failed to create library '$lib_name'"
     exit 1
   fi
-
   print_info "Created: projects/$lib_name/ with groupId: $group_id"
 }
 
-# Install JAR libraries from /workspace/lib to local Maven repository
 install_libs_from_workspace() {
   local CONTAINER_NAME=$(grep "^CONTAINER_NAME=" .env | cut -d= -f2)
   local lib_dir="/workspace/lib"
-
   # Check if container is running
   if ! docker ps --format 'table {{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
     print_warn "Container ${CONTAINER_NAME} is not running, skipping library installation"
     return 0
   fi
-
-  # Check if lib directory exists in container
-  if ! docker exec "${CONTAINER_NAME}" [ -d "$lib_dir" ]; then
-    print_info "No /workspace/lib directory found in container, skipping library installation"
-    return 0
-  fi
-
-  # Count JAR files (excluding sources and javadoc)
-  local jar_count=$(docker exec "${CONTAINER_NAME}" find "$lib_dir" -maxdepth 1 -name "*.jar" ! -name "*-sources.jar" ! -name "*-javadoc.jar" 2>/dev/null | wc -l)
-
+  # Check if lib directory exists and count JAR files in a single call
+  local jar_count=$(docker exec "${CONTAINER_NAME}" sh -c "
+    [ -d '$lib_dir' ] || exit 0
+    find '$lib_dir' -maxdepth 1 -name '*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' 2>/dev/null | wc -l
+  ")
   if [ "$jar_count" -eq 0 ]; then
-    print_info "No JAR libraries found in /workspace/lib"
     return 0
   fi
-
   print_info "Installing $jar_count JAR libraries from /workspace/lib to Maven local repository..."
+  # Execute entire installation process in a single docker exec call
+  docker exec "${CONTAINER_NAME}" bash -c '
+export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+lib_dir="/workspace/lib"
 
-  # Get list of JAR files from container
-  docker exec "${CONTAINER_NAME}" find "$lib_dir" -maxdepth 1 -name "*.jar" ! -name "*-sources.jar" ! -name "*-javadoc.jar" 2>/dev/null | while read jar_file; do
-    # Extract pom.properties to get Maven coordinates
-    # Create a temp directory and extract there
-    local temp_dir=$(docker exec "${CONTAINER_NAME}" mktemp -d)
-    local pom_props=$(docker exec "${CONTAINER_NAME}" sh -c "cd '$temp_dir' && jar -xf '$jar_file' META-INF/maven/ 2>/dev/null && find . -name 'pom.properties' 2>/dev/null | head -1" || echo "")
+# Find all main JAR files
+find "$lib_dir" -maxdepth 1 -name "*.jar" ! -name "*-sources.jar" ! -name "*-javadoc.jar" 2>/dev/null | while IFS= read -r jar_file; do
+  # Create temp directory for extraction
+  temp_dir=$(mktemp -d)
 
-    if [ -n "$pom_props" ]; then
-      # Construct full path to pom.properties
-      local pom_props_full="$temp_dir/$pom_props"
+  # Extract pom.properties using unzip (faster than jar)
+  pom_props=$(unzip -p "$jar_file" "META-INF/maven/*/*/pom.properties" 2>/dev/null | head -c 10000)
 
-      # Read Maven coordinates from pom.properties
-      local groupId=$(docker exec "${CONTAINER_NAME}" grep "^groupId=" "$pom_props_full" | cut -d= -f2)
-      local artifactId=$(docker exec "${CONTAINER_NAME}" grep "^artifactId=" "$pom_props_full" | cut -d= -f2)
-      local version=$(docker exec "${CONTAINER_NAME}" grep "^version=" "$pom_props_full" | cut -d= -f2)
+  if [ -n "$pom_props" ]; then
+    # Extract Maven coordinates directly from content
+    groupId=$(echo "$pom_props" | grep "^groupId=" | cut -d= -f2 | tr -d "\r\n ")
+    artifactId=$(echo "$pom_props" | grep "^artifactId=" | cut -d= -f2 | tr -d "\r\n ")
+    version=$(echo "$pom_props" | grep "^version=" | cut -d= -f2 | tr -d "\r\n ")
 
-      if [ -n "$groupId" ] && [ -n "$artifactId" ] && [ -n "$version" ]; then
-        print_info "Installing $artifactId-$version.jar..."
+    if [ -n "$groupId" ] && [ -n "$artifactId" ] && [ -n "$version" ]; then
+      echo "[info] Installing $artifactId-$version.jar..."
 
-        # Install main JAR inside container
-        docker exec "${CONTAINER_NAME}" sh -c "export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 && mvn install:install-file \
-          -Dfile='$jar_file' \
-          -DgroupId='$groupId' \
-          -DartifactId='$artifactId' \
-          -Dversion='$version' \
-          -Dpackaging=jar \
-          -DgeneratePom=true \
-          -DcreateChecksum=true \
-          -q" || print_warn "Failed to install $jar_file"
+      # Install main JAR
+      if mvn install:install-file \
+        -Dfile="$jar_file" \
+        -DgroupId="$groupId" \
+        -DartifactId="$artifactId" \
+        -Dversion="$version" \
+        -Dpackaging=jar \
+        -DgeneratePom=true \
+        -DcreateChecksum=true \
+        -q 2>/dev/null; then
+
+        # Get base name for sources and javadoc
+        base_name=$(basename "$jar_file" .jar)
 
         # Install sources JAR if exists
-        local base_name=$(basename "$jar_file" .jar)
-        local sources_jar="$lib_dir/${base_name}-sources.jar"
-        if docker exec "${CONTAINER_NAME}" [ -f "$sources_jar" ]; then
-          print_info "Installing $artifactId-$version-sources.jar..."
-          docker exec "${CONTAINER_NAME}" sh -c "export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 && mvn install:install-file \
-            -Dfile='$sources_jar' \
-            -DgroupId='$groupId' \
-            -DartifactId='$artifactId' \
-            -Dversion='$version' \
+        sources_jar="$lib_dir/${base_name}-sources.jar"
+        if [ -f "$sources_jar" ]; then
+          echo "[info] Installing $artifactId-$version-sources.jar..."
+          mvn install:install-file \
+            -Dfile="$sources_jar" \
+            -DgroupId="$groupId" \
+            -DartifactId="$artifactId" \
+            -Dversion="$version" \
             -Dpackaging=jar \
             -Dclassifier=sources \
             -DgeneratePom=false \
             -DcreateChecksum=true \
-            -q"
+            -q 2>/dev/null
         fi
 
         # Install javadoc JAR if exists
-        local javadoc_jar="$lib_dir/${base_name}-javadoc.jar"
-        if docker exec "${CONTAINER_NAME}" [ -f "$javadoc_jar" ]; then
-          print_info "Installing $artifactId-$version-javadoc.jar..."
-          docker exec "${CONTAINER_NAME}" sh -c "export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 && mvn install:install-file \
-            -Dfile='$javadoc_jar' \
-            -DgroupId='$groupId' \
-            -DartifactId='$artifactId' \
-            -Dversion='$version' \
+        javadoc_jar="$lib_dir/${base_name}-javadoc.jar"
+        if [ -f "$javadoc_jar" ]; then
+          echo "[info] Installing $artifactId-$version-javadoc.jar..."
+          mvn install:install-file \
+            -Dfile="$javadoc_jar" \
+            -DgroupId="$groupId" \
+            -DartifactId="$artifactId" \
+            -Dversion="$version" \
             -Dpackaging=jar \
             -Dclassifier=javadoc \
             -DgeneratePom=false \
             -DcreateChecksum=true \
-            -q"
+            -q 2>/dev/null
         fi
       else
-        print_warn "Could not extract Maven coordinates from $jar_file"
+        echo "[warn] Failed to install $jar_file"
       fi
     else
-      print_warn "No pom.properties found in $jar_file, skipping installation"
+      echo "[warn] Could not extract Maven coordinates from $jar_file"
     fi
+  else
+    echo "[warn] No pom.properties found in $jar_file, skipping installation"
+  fi
 
-    # Cleanup temp directory in container
-    docker exec "${CONTAINER_NAME}" rm -rf "$temp_dir" 2>/dev/null || true
-  done
-
+  # Cleanup temp directory
+  rm -rf "$temp_dir" 2>/dev/null || true
+done
+'
   print_info "Library installation from /workspace/lib completed"
 }
 
-# Parse command line arguments
 parse_args() {
   while [ $# -gt 0 ]; do
     case $1 in
@@ -1379,66 +1154,46 @@ parse_args() {
   done
 }
 
-# Show usage information
 show_usage() {
   echo "Usage: $0 [OPTIONS]"
   echo ""
-  echo "Sets up TomEE development environment with Docker container."
+  echo "Sets up TomEEx development environment with Docker container."
   echo ""
   echo "Options:"
-  echo "  --postgres             Also install and start PostgreSQL container"
-  echo "  --mariadb              Also install and start MariaDB container"
-  echo "  --sqlite               Also install SQLite3 in TomEE container"
-  echo "  --claude               Install Claude Code with NVM and Node.js 18"
-  echo "  --create-webapp <name> Create new Maven webapp with Makefile and README"
-  echo "  --create-library <name> Create new JAR library with Makefile and README"
-  echo "  --remove-webapp <name>  Remove webapp and associated database"
-  echo "  --remove-library <name> Remove JAR library"
-  echo "  --database <type>       Add database support (postgres, mariadb, sqlite)"
-  echo "  --help, -h             Show this help"
+  echo "  --postgres               Also install and start PostgreSQL container"
+  echo "  --mariadb                Also install and start MariaDB container"
+  echo "  --sqlite                 Also install SQLite3 in TomEE container"
+  echo "  --claude                 Install Claude Code with NVM and Node.js 18"
+  echo "  --create-webapp  <name>  Create new Maven webapp with Makefile and README"
+  echo "  --create-library <name>  Create new JAR library with Makefile and README"
+  echo "  --remove-webapp  <name>  Remove webapp and associated database"
+  echo "  --remove-library <name>  Remove JAR library"
+  echo "  --database       <type>  Add database support (postgres, mariadb, sqlite)"
+  echo "  --help, -h               Show this help"
   echo ""
-  echo "Examples:"
-  echo "  $0                           # Setup TomEE only"
-  echo "  $0 --postgres                # Setup TomEE + PostgreSQL"
-  echo "  $0 --mariadb                 # Setup TomEE + MariaDB"
-  echo "  $0 --sqlite                  # Setup TomEE + SQLite3"
-  echo "  $0 --create-webapp myapp     # Create new webapp 'myapp'"
-  echo "  $0 --create-library mylib    # Create new JAR library 'mylib'"
-  echo "  $0 --remove-webapp myapp     # Remove webapp 'myapp' and database"
-  echo "  $0 --remove-library mylib    # Remove library 'mylib'"
-  echo "  $0 --postgres --sqlite       # Setup TomEE + PostgreSQL + SQLite3"
-  echo "  $0 --claude                  # Setup TomEE + Claude Code"
 }
 
-# Main execution - Setup environment with two-phase .env check
 main() {
   # Parse command line arguments
   parse_args "$@"
-  
-  # Handle create-webapp command
   if [ -n "$CREATE_WEBAPP" ]; then
     create_webapp "$CREATE_WEBAPP" "$DATABASE_TYPE"
     exit 0
   fi
-
   if [ -n "$REMOVE_WEBAPP" ]; then
     remove_webapp "$REMOVE_WEBAPP"
     exit 0
   fi
-
   if [ -n "$CREATE_LIBRARY" ]; then
     create_library "$CREATE_LIBRARY" "$WITH_DATABASE"
     exit 0
   fi
-
   if [ -n "$REMOVE_LIBRARY" ]; then
     remove_library "$REMOVE_LIBRARY"
     exit 0
   fi
-
   print_header "TomEEx Environment Setup"
   echo ""
-  
   #Check if .env exists - if not, create it and exit
   if [ ! -f ".env" ]; then
     print_info ".env file not found, creating configuration file..."
@@ -1448,7 +1203,6 @@ main() {
     print_warn "Run './install.sh' again to continue."
     return 0
   fi
-  
   # .env exists, proceed with full installation
   check_docker
   create_basic_directories
@@ -1485,25 +1239,17 @@ main() {
   MANAGER_USER=$(grep MANAGER_USER .env | cut -d= -f2)
   MANAGER_PASSWORD=$(grep MANAGER_PASSWORD .env | cut -d= -f2)
   echo "Login: $ADMIN_USER / $ADMIN_PASSWORD (or $MANAGER_USER / $MANAGER_PASSWORD)"
-  
   # Setup databases if requested
   if [ "$INSTALL_POSTGRES" = "true" ]; then
-    echo ""
     setup_postgres
   fi
-  
   if [ "$INSTALL_MARIADB" = "true" ]; then
-    echo ""
     setup_mariadb
   fi
-  
   if [ "$INSTALL_SQLITE" = "true" ]; then
-    echo ""
     setup_sqlite
   fi
-
   if [ "$INSTALL_CLAUDE" = "true" ]; then
-    echo ""
     install_claude_code
   fi
 }
