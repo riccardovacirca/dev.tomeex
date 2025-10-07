@@ -85,6 +85,12 @@ clean:
 	@rm -rf $(TOMEE_WEBAPPS)/$(APP_NAME)*
 	@echo "Clean complete"
 
+# Configure Git safe directory
+git-safe:
+	@echo "Adding project directory to Git safe.directory..."
+	@git config --global --add safe.directory /workspace/projects/${artifactId}
+	@echo "Git safe.directory configured"
+
 # Display help
 help:
 	@echo "$(APP_NAME) Webapp - Available targets:"
@@ -97,6 +103,7 @@ help:
 	@echo "  test          - Run unit tests"
 	@echo "  test-verbose  - Run tests with verbose output"
 	@echo "  clean         - Clean build artifacts and remove from TomEE"
+	@echo "  git-safe      - Add project to Git safe.directory"
 	@echo ""
 	@echo "  help          - Show this help message"
 	@echo ""
@@ -104,4 +111,4 @@ help:
 	@echo ""
 	@echo "For clean redeploy: make clean && make deploy"
 
-.PHONY: build release compile deploy quick-deploy test test-verbose clean help
+.PHONY: build release compile deploy quick-deploy test test-verbose clean git-safe help

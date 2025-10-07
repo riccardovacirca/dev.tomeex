@@ -85,6 +85,12 @@ clean:
 	@rm -rf $(TOMEE_WEBAPPS)/$(APP_NAME)*
 	@echo "Clean complete"
 
+# Configure Git safe directory
+git-safe:
+	@echo "Adding project directory to Git safe.directory..."
+	@git config --global --add safe.directory /workspace/projects/${artifactId}
+	@echo "Git safe.directory configured"
+
 # Database CLI - Connect to application database or execute SQL file
 dbcli:
 	@if [ ! -f .env ]; then \
@@ -142,6 +148,7 @@ help:
 	@echo "  test          - Run unit tests"
 	@echo "  test-verbose  - Run tests with verbose output"
 	@echo "  clean         - Clean build artifacts and remove from TomEE"
+	@echo "  git-safe      - Add project to Git safe.directory"
 	@echo "  dbcli         - Connect to application database"
 	@echo "  dbcli load=<file.sql> - Execute SQL file in database"
 	@echo ""
@@ -151,4 +158,4 @@ help:
 	@echo ""
 	@echo "For clean redeploy: make clean && make deploy"
 
-.PHONY: build release compile deploy quick-deploy test test-verbose clean dbcli help
+.PHONY: build release compile deploy quick-deploy test test-verbose clean git-safe dbcli help

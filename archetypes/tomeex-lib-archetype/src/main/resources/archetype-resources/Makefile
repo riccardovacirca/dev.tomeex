@@ -77,6 +77,12 @@ install-javadoc: build
 install-full: install install-sources install-javadoc
 	@echo "Full installation complete (main + sources + javadoc)"
 
+# Configure Git safe directory
+git-safe:
+	@echo "Adding project directory to Git safe.directory..."
+	@git config --global --add safe.directory /workspace/projects/${artifactId}
+	@echo "Git safe.directory configured"
+
 # Check if library is available in local repo
 check-repo:
 	@echo "Checking if ${artifactId} is installed in local Maven repository:"
@@ -107,9 +113,10 @@ help:
 	@echo "  clean            - Clean build artifacts"
 	@echo "  docs             - Generate Javadoc HTML documentation"
 	@echo ""
+	@echo "  git-safe         - Add project to Git safe.directory"
 	@echo "  check-repo       - Check if library is in local Maven repo"
 	@echo "  coordinates      - Show Maven dependency coordinates"
 	@echo ""
 	@echo "  help             - Show this help message"
 
-.PHONY: build compile test test-verbose install install-sources install-javadoc install-full clean docs check-repo coordinates help
+.PHONY: build compile test test-verbose install install-sources install-javadoc install-full clean docs git-safe check-repo coordinates help
