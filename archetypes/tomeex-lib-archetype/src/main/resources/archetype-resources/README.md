@@ -1,38 +1,12 @@
 # ${artifactId}
 
-Reusable JAR library for ${artifactId}
+${artifactId} Library for TomEEx projects
 
-## Commands
+## Overview
 
-**Development:**
-```bash
-make              # Compile + build JAR + install to Maven repo
-make build        # Compile + build JAR to target/
-make compile      # Compile source code only
-```
+Reusable JAR library providing common functionality for TomEE webapps and libraries.
 
-**Testing:**
-```bash
-make test         # Run unit tests
-make test-verbose # Run tests with detailed output
-```
-
-**Distribution:**
-```bash
-make install      # Install JAR to local Maven repository (~/.m2)
-make coordinates  # Show Maven dependency for other projects
-```
-
-**Maintenance:**
-```bash
-make clean        # Remove build artifacts
-make docs         # Generate Javadoc in target/site/
-make check-repo   # Verify library in local Maven repo
-```
-
-## Usage in Other Projects
-
-After `make install`, add to pom.xml:
+**Maven Coordinates:**
 ```xml
 <dependency>
     <groupId>${groupId}</groupId>
@@ -41,22 +15,62 @@ After `make install`, add to pom.xml:
 </dependency>
 ```
 
+## Install
+
+After cloning this library into your TomEEx environment:
+
+### 1. Clone into projects directory
+```bash
+cd /path/to/dev.tomeex/projects/
+git clone <repository-url> ${artifactId}
+```
+
+### 2. Build and install (inside TomEE container)
+```bash
+docker exec -it tomeex bash
+cd /workspace/projects/${artifactId}
+make install
+```
+
+This will:
+- Compile the library with Java 17
+- Run tests
+- Install to local Maven repository (`~/.m2/repository/${groupId}/${artifactId}/${version}/`)
+- Copy JARs to `/workspace/lib/` for backup
+
+### 3. Use in other projects
+
+The library is now available to any Maven project in the TomEEx environment. Simply add the dependency to your `pom.xml`:
+
+```xml
+<dependency>
+    <groupId>${groupId}</groupId>
+    <artifactId>${artifactId}</artifactId>
+    <version>${version}</version>
+</dependency>
+```
+
+## Development
+
+All development commands should be run **inside the TomEE container**:
+
+```bash
+docker exec -it tomeex bash
+cd /workspace/projects/${artifactId}
+```
+
+**Available commands:**
+- `make install` - Build and install main JAR to Maven repo (default)
+- `make install-sources` - Install sources JAR for IDE support
+- `make install-javadoc` - Install Javadoc JAR for documentation
+- `make install-full` - Install main + sources + javadoc JARs
+- `make build` - Build JAR and copy to /workspace/lib/
+- `make compile` - Compile source code only
+- `make test` - Run unit tests
+- `make clean` - Clean build artifacts
+- `make docs` - Generate Javadoc HTML documentation
+- `make check-repo` - Verify installation in Maven repo
+
 ## License
 
-PolyForm Noncommercial License 1.0.0 - See LICENSE.md
-
-**To change license:**
-1. Edit `LICENSE.md` with your license text
-2. Update `pom.xml` section:
-   ```xml
-   <licenses>
-       <license>
-           <name>Your License Name</name>
-           <url>https://your-license-url</url>
-           <distribution>repo</distribution>
-           <comments>Your license description</comments>
-       </license>
-   </licenses>
-   ```
-3. Rebuild: `make clean && make install`
-4. License will be included in JAR at `META-INF/LICENSE.md`
+See LICENSE.md for licensing information.

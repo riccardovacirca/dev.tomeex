@@ -89,34 +89,18 @@
                 <version>3.2.5</version>
             </plugin>
             
-            <!-- Generate sources JAR for better IDE support -->
+            <!-- Generate sources JAR - disabled by default, run manually with: mvn source:jar -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-source-plugin</artifactId>
                 <version>3.3.0</version>
-                <executions>
-                    <execution>
-                        <id>attach-sources</id>
-                        <goals>
-                            <goal>jar</goal>
-                        </goals>
-                    </execution>
-                </executions>
             </plugin>
-            
-            <!-- Generate Javadoc JAR -->
+
+            <!-- Generate Javadoc JAR - disabled by default, run manually with: mvn javadoc:jar -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
                 <version>3.6.3</version>
-                <executions>
-                    <execution>
-                        <id>attach-javadocs</id>
-                        <goals>
-                            <goal>jar</goal>
-                        </goals>
-                    </execution>
-                </executions>
             </plugin>
         </plugins>
     </build>
