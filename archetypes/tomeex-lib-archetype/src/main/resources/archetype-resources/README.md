@@ -22,13 +22,13 @@ After cloning this library into your TomEEx environment:
 ### 1. Clone into projects directory
 ```bash
 cd /path/to/dev.tomeex/projects/
-git clone <repository-url> ${artifactId}
+git clone <repository-url> ${groupId}
 ```
 
 ### 2. Build and install (inside TomEE container)
 ```bash
 docker exec -it tomeex bash
-cd /workspace/projects/${artifactId}
+cd /workspace/projects/${groupId}
 make install
 ```
 
@@ -56,7 +56,7 @@ All development commands should be run **inside the TomEE container**:
 
 ```bash
 docker exec -it tomeex bash
-cd /workspace/projects/${artifactId}
+cd /workspace/projects/${groupId}
 ```
 
 **Available commands:**

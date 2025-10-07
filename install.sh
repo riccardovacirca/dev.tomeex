@@ -13,6 +13,7 @@ REMOVE_WEBAPP=""
 REMOVE_LIBRARY=""
 DATABASE_TYPE=""
 GROUP_ID=""
+ARTIFACT_ID=""
 
 print_info() {
   printf "[info] %s\n" "$1"
@@ -299,7 +300,7 @@ install_dev_tools() {
   if docker exec "${CONTAINER_NAME}" sh -c "
     apt-get update -qq > /dev/null 2>&1 && \
     apt-get install -y --no-install-recommends \
-      make openjdk-17-jdk-headless git maven wget curl rsync postgresql-client > /dev/null 2>&1 && \
+      make openjdk-17-jdk-headless git maven wget curl rsync postgresql-client default-mysql-client sqlite3 > /dev/null 2>&1 && \
     echo 'export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64' >> /root/.bashrc && \
     apt-get clean > /dev/null 2>&1 && \
     rm -rf /var/lib/apt/lists/*
@@ -629,9 +630,10 @@ install_claude_code() {
 }
 
 create_webapp_env_file() {
-  local app_name="$1"
-  local db_type="$2"
-  local env_file="projects/$app_name/.env"
+  local group_id="$1"
+  local app_name="$2"
+  local db_type="$3"
+  local env_file="projects/$group_id/.env"
   print_info "Creating .env file for webapp '$app_name'..."
   case "$db_type" in
     postgres)
@@ -724,13 +726,21 @@ create_postgres_webapp_database() {
   local container_name=$(grep POSTGRES_CONTAINER_NAME .env | cut -d= -f2)
   local admin_password=$(grep POSTGRES_PASSWORD .env | cut -d= -f2)
   export PGPASSWORD="$admin_password"
+
+  # Check if user already exists
   if psql -h "$container_name" -p 5432 -U postgres -d postgres -t -c "SELECT 1 FROM pg_roles WHERE rolname='${app_name}';" 2>/dev/null | grep -q 1; then
+    unset PGPASSWORD
     print_error "User '${app_name}' already exists"
     return 1
   fi
-  if psql -h "$container_name" -p 5432 -U postgres -d postgres -c "CREATE USER ${app_name} WITH PASSWORD 'secret'; CREATE DATABASE ${app_name} OWNER ${app_name}; GRANT ALL PRIVILEGES ON DATABASE ${app_name} TO ${app_name};" > /dev/null 2>&1; then
+
+  # Create user, database and grant privileges (separate commands)
+  if psql -h "$container_name" -p 5432 -U postgres -d postgres -c "CREATE USER ${app_name} WITH PASSWORD 'secret';" > /dev/null 2>&1 && \
+     psql -h "$container_name" -p 5432 -U postgres -d postgres -c "CREATE DATABASE ${app_name} OWNER ${app_name};" > /dev/null 2>&1 && \
+     psql -h "$container_name" -p 5432 -U postgres -d postgres -c "GRANT ALL PRIVILEGES ON DATABASE ${app_name} TO ${app_name};" > /dev/null 2>&1; then
     unset PGPASSWORD
     print_info "PostgreSQL database '$app_name' created successfully"
+    print_info "Database: $app_name | User: $app_name | Password: secret"
   else
     unset PGPASSWORD
     print_error "Failed to create PostgreSQL database '$app_name'"
@@ -742,31 +752,51 @@ create_mariadb_webapp_database() {
   local app_name="$1"
   local container_name=$(grep MARIADB_CONTAINER_NAME .env | cut -d= -f2)
   local root_password=$(grep MARIADB_ROOT_PASSWORD .env | cut -d= -f2)
-  print_info "Creating MariaDB database '$app_name' with user '$app_name'..."
-  # Check if container is running
-  if ! docker ps --format 'table {{.Names}}' | grep -q "^${container_name}$"; then
-    print_error "MariaDB container '${container_name}' is not running. Start it with: ./install.sh --mariadb"
+
+  # Check if mysql is available
+  if ! command -v mysql > /dev/null 2>&1; then
+    print_error "mysql not available. Install MariaDB/MySQL client"
     return 1
   fi
-  # Create user and database
-  docker exec "${container_name}" mysql -u root -p"${root_password}" -e "CREATE DATABASE IF NOT EXISTS ${app_name};" 2>/dev/null
-  docker exec "${container_name}" mysql -u root -p"${root_password}" -e "CREATE USER IF NOT EXISTS '${app_name}'@'%' IDENTIFIED BY 'secret';" 2>/dev/null
-  docker exec "${container_name}" mysql -u root -p"${root_password}" -e "GRANT ALL PRIVILEGES ON ${app_name}.* TO '${app_name}'@'%';" 2>/dev/null
-  docker exec "${container_name}" mysql -u root -p"${root_password}" -e "FLUSH PRIVILEGES;" 2>/dev/null
-  print_info "MariaDB setup complete for webapp '$app_name'"
-  print_info "Database: $app_name | User: $app_name | Password: secret"
+
+  print_info "Creating MariaDB database '$app_name' with user '$app_name'..."
+
+  # Test connection first
+  if ! mysql -h "$container_name" -P 3306 -u root -p"$root_password" -e "SELECT 1;" > /dev/null 2>&1; then
+    print_error "Cannot connect to MariaDB at '$container_name:3306'"
+    print_error "Make sure MariaDB container is running: ./install.sh --mariadb"
+    return 1
+  fi
+
+  # Create database, user and grant privileges (separate commands)
+  if mysql -h "$container_name" -P 3306 -u root -p"$root_password" -e "CREATE DATABASE IF NOT EXISTS ${app_name};" 2>/dev/null && \
+     mysql -h "$container_name" -P 3306 -u root -p"$root_password" -e "CREATE USER IF NOT EXISTS '${app_name}'@'%' IDENTIFIED BY 'secret';" 2>/dev/null && \
+     mysql -h "$container_name" -P 3306 -u root -p"$root_password" -e "GRANT ALL PRIVILEGES ON ${app_name}.* TO '${app_name}'@'%';" 2>/dev/null && \
+     mysql -h "$container_name" -P 3306 -u root -p"$root_password" -e "FLUSH PRIVILEGES;" 2>/dev/null; then
+    print_info "MariaDB setup complete for webapp '$app_name'"
+    print_info "Database: $app_name | User: $app_name | Password: secret"
+  else
+    print_error "Failed to create MariaDB database '$app_name'"
+    return 1
+  fi
 }
 
 create_sqlite_webapp_database() {
   local app_name="$1"
   local sqlite_data_dir=$(grep SQLITE_DATA_DIR .env | cut -d= -f2)
-  local container_name=$(grep "^CONTAINER_NAME=" .env | cut -d= -f2)
+
+  # Check if sqlite3 is available
+  if ! command -v sqlite3 > /dev/null 2>&1; then
+    print_warn "sqlite3 not available, skipping database initialization"
+    return 0
+  fi
+
   print_info "Creating SQLite database for webapp '$app_name'..."
-  # Create SQLite database file
-  touch "${sqlite_data_dir}/${app_name}.sqlite"
-  # Initialize database with a simple test table
-  local sqlite_path="/workspace/${sqlite_data_dir}/${app_name}.sqlite"
-  docker exec "${container_name}" sqlite3 "$sqlite_path" "CREATE TABLE IF NOT EXISTS test (id INTEGER PRIMARY KEY, name TEXT);" 2>/dev/null
+  # Create directory if it doesn't exist
+  mkdir -p "${sqlite_data_dir}"
+  # Create and initialize database with a simple test table
+  local sqlite_path="${sqlite_data_dir}/${app_name}.sqlite"
+  sqlite3 "$sqlite_path" "CREATE TABLE IF NOT EXISTS test (id INTEGER PRIMARY KEY, name TEXT);" 2>/dev/null
   print_info "SQLite setup complete for webapp '$app_name'"
   print_info "Database: ${app_name}.sqlite | Location: ${sqlite_data_dir}/${app_name}.sqlite"
 }
@@ -775,19 +805,49 @@ remove_postgres_webapp_database() {
   local app_name="$1"
   local container_name=$(grep POSTGRES_CONTAINER_NAME .env | cut -d= -f2)
   local admin_password=$(grep POSTGRES_PASSWORD .env | cut -d= -f2)
+  local port=$(grep POSTGRES_PORT .env | cut -d= -f2)
+
+  # Check if PostgreSQL is reachable
+  if ! command -v psql > /dev/null 2>&1; then
+    print_warn "psql not available, skipping database removal"
+    return 0
+  fi
+
+  # Try to connect using container name on the network
   export PGPASSWORD="$admin_password"
-  docker exec "$container_name" psql -U postgres -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$app_name';" > /dev/null 2>&1 || true
-  docker exec "$container_name" psql -U postgres -d postgres -c "DROP DATABASE IF EXISTS $app_name; DROP USER IF EXISTS $app_name;" > /dev/null 2>&1
+  if psql -h "$container_name" -p 5432 -U postgres -d postgres -c "SELECT 1;" > /dev/null 2>&1; then
+    # Terminate active connections
+    psql -h "$container_name" -p 5432 -U postgres -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$app_name';" > /dev/null 2>&1 || true
+    # Drop database and user separately (DROP DATABASE cannot run in transaction block)
+    psql -h "$container_name" -p 5432 -U postgres -d postgres -c "DROP DATABASE IF EXISTS $app_name;" > /dev/null 2>&1 || true
+    psql -h "$container_name" -p 5432 -U postgres -d postgres -c "DROP USER IF EXISTS $app_name;" > /dev/null 2>&1 || true
+    print_info "PostgreSQL database '$app_name' removed"
+  else
+    print_warn "PostgreSQL not reachable, skipping database removal"
+  fi
   unset PGPASSWORD
-  print_info "PostgreSQL database '$app_name' removed"
 }
 
 remove_mariadb_webapp_database() {
   local app_name="$1"
   local container_name=$(grep MARIADB_CONTAINER_NAME .env | cut -d= -f2)
   local root_password=$(grep MARIADB_ROOT_PASSWORD .env | cut -d= -f2)
-  docker exec "$container_name" mysql -u root -p"$root_password" -e "DROP DATABASE IF EXISTS $app_name; DROP USER IF EXISTS '$app_name'@'%';" > /dev/null 2>&1
-  print_info "MariaDB database '$app_name' removed"
+
+  # Check if mysql is available
+  if ! command -v mysql > /dev/null 2>&1; then
+    print_warn "mysql not available, skipping database removal"
+    return 0
+  fi
+
+  # Try to connect using container name on the network
+  if mysql -h "$container_name" -P 3306 -u root -p"$root_password" -e "SELECT 1;" > /dev/null 2>&1; then
+    # Drop database and user separately
+    mysql -h "$container_name" -P 3306 -u root -p"$root_password" -e "DROP DATABASE IF EXISTS $app_name;" > /dev/null 2>&1 || true
+    mysql -h "$container_name" -P 3306 -u root -p"$root_password" -e "DROP USER IF EXISTS '$app_name'@'%';" > /dev/null 2>&1 || true
+    print_info "MariaDB database '$app_name' removed"
+  else
+    print_warn "MariaDB not reachable, skipping database removal"
+  fi
 }
 
 remove_sqlite_webapp_database() {
@@ -813,8 +873,8 @@ create_webapp() {
     print_error "Application name is required"
     exit 1
   fi
-  if [ -d "projects/$app_name" ]; then
-    print_error "Application '$app_name' already exists in projects/ directory"
+  if [ -d "projects/$group_id" ]; then
+    print_error "Application '$group_id' already exists in projects/ directory"
     exit 1
   fi
   if [ -n "$db_type" ]; then
@@ -829,7 +889,7 @@ create_webapp() {
     esac
     # Install only the database archetype if needed
     ensure_archetype_installed "tomeex-app-database-archetype"
-    print_info "Creating webapp '$app_name' with groupId '$group_id' and $db_type database..."
+    print_info "Creating webapp '$app_name' (groupId: $group_id) with $db_type database..."
     cd projects || exit 1
     mvn archetype:generate \
       -DgroupId="$group_id" \
@@ -841,11 +901,15 @@ create_webapp() {
       -DinteractiveMode=false \
       -DarchetypeCatalog=local \
       -q
+    # Rename directory from artifactId to groupId
+    if [ -d "$app_name" ] && [ "$app_name" != "$group_id" ]; then
+      mv "$app_name" "$group_id"
+    fi
     cd ..
   else
     # Install only the simple webapp archetype if needed
     ensure_archetype_installed "tomeex-app-archetype"
-    print_info "Creating webapp '$app_name' with groupId '$group_id'..."
+    print_info "Creating webapp '$app_name' (groupId: $group_id)..."
     cd projects || exit 1
     mvn archetype:generate \
       -DgroupId="$group_id" \
@@ -856,22 +920,25 @@ create_webapp() {
       -DinteractiveMode=false \
       -DarchetypeCatalog=local \
       -q
-
+    # Rename directory from artifactId to groupId
+    if [ -d "$app_name" ] && [ "$app_name" != "$group_id" ]; then
+      mv "$app_name" "$group_id"
+    fi
     cd ..
   fi
-  if [ ! -d "projects/$app_name" ]; then
-    print_error "Failed to create webapp '$app_name'"
+  if [ ! -d "projects/$group_id" ]; then
+    print_error "Failed to create webapp '$group_id'"
     exit 1
   fi
   # Create database and user for webapp if database type is specified
   if [ -n "$db_type" ]; then
     create_webapp_database "$app_name" "$db_type"
-    create_webapp_env_file "$app_name" "$db_type"
+    create_webapp_env_file "$group_id" "$app_name" "$db_type"
   fi
-  print_info "Created: projects/$app_name/ with groupId: $group_id"
+  print_info "Created: projects/$group_id/ with artifactId: $app_name"
   # Build and deploy the webapp
   print_info "Building and deploying $app_name..."
-  cd "projects/$app_name" || exit 1
+  cd "projects/$group_id" || exit 1
   make deploy
   cd - > /dev/null || exit 1
   # Show webapp URLs
@@ -880,44 +947,53 @@ create_webapp() {
 }
 
 remove_webapp() {
-  local app_name="$1"
-  if [ -z "$app_name" ]; then
-    print_error "Application name is required"
+  local project_path="$1"
+  local artifact_id="$2"
+  if [ -z "$project_path" ]; then
+    print_error "Project path is required"
     exit 1
   fi
-  if [ ! -d "projects/$app_name" ]; then
-    print_error "Application '$app_name' not found in projects/ directory"
+  if [ ! -d "projects/$project_path" ]; then
+    print_error "Project '$project_path' not found in projects/ directory"
     exit 1
   fi
-  local context_xml="projects/$app_name/src/main/resources/META-INF/context.xml"
+  # Extract artifactId from pom.xml if not provided
+  if [ -z "$artifact_id" ]; then
+    artifact_id=$(grep -m1 "<artifactId>" "projects/$project_path/pom.xml" | sed 's/.*<artifactId>\(.*\)<\/artifactId>.*/\1/' | xargs)
+  fi
+  if [ -z "$artifact_id" ]; then
+    print_error "Could not determine artifactId for webapp removal"
+    exit 1
+  fi
+  local context_xml="projects/$project_path/src/main/resources/META-INF/context.xml"
   if [ -f "$context_xml" ]; then
     if grep -q "postgresql" "$context_xml"; then
-      remove_postgres_webapp_database "$app_name"
+      remove_postgres_webapp_database "$artifact_id"
     elif grep -q "mariadb\|mysql" "$context_xml"; then
-      remove_mariadb_webapp_database "$app_name"
+      remove_mariadb_webapp_database "$artifact_id"
     elif grep -q "sqlite" "$context_xml"; then
-      remove_sqlite_webapp_database "$app_name"
+      remove_sqlite_webapp_database "$artifact_id"
     fi
   fi
-  rm -rf "/usr/local/tomee/webapps/${app_name}" 2>/dev/null || true
-  rm -f "/usr/local/tomee/webapps/${app_name}.war" 2>/dev/null || true
-  rm -rf "/usr/local/tomee/work/Catalina/localhost/${app_name}" 2>/dev/null || true
-  rm -rf "projects/$app_name"
-  print_info "Webapp '$app_name' removed successfully"
+  rm -rf "/usr/local/tomee/webapps/${artifact_id}" 2>/dev/null || true
+  rm -f "/usr/local/tomee/webapps/${artifact_id}.war" 2>/dev/null || true
+  rm -rf "/usr/local/tomee/work/Catalina/localhost/${artifact_id}" 2>/dev/null || true
+  rm -rf "projects/$project_path"
+  print_info "Webapp '$project_path' (artifactId: $artifact_id) removed successfully"
 }
 
 remove_library() {
-  local lib_name="$1"
-  if [ -z "$lib_name" ]; then
-    print_error "Library name is required"
+  local project_path="$1"
+  if [ -z "$project_path" ]; then
+    print_error "Project path is required"
     exit 1
   fi
-  if [ ! -d "projects/$lib_name" ]; then
-    print_error "Library '$lib_name' not found in projects/ directory"
+  if [ ! -d "projects/$project_path" ]; then
+    print_error "Library '$project_path' not found in projects/ directory"
     exit 1
   fi
-  rm -rf "projects/$lib_name"
-  print_info "Library '$lib_name' removed successfully"
+  rm -rf "projects/$project_path"
+  print_info "Library '$project_path' removed successfully"
 }
 
 create_library() {
@@ -928,13 +1004,13 @@ create_library() {
     print_error "Library name is required"
     exit 1
   fi
-  if [ -d "projects/$lib_name" ]; then
-    print_error "Library '$lib_name' already exists in projects/ directory"
+  if [ -d "projects/$group_id" ]; then
+    print_error "Library '$group_id' already exists in projects/ directory"
     exit 1
   fi
   if [ "$with_db" = "true" ]; then
     ensure_archetype_installed "tomeex-lib-database-archetype"
-    print_info "Creating library '$lib_name' with multi-database support..."
+    print_info "Creating library '$lib_name' (groupId: $group_id) with multi-database support..."
     cd projects || exit 1
     mvn archetype:generate \
       -DgroupId="$group_id" \
@@ -945,10 +1021,14 @@ create_library() {
       -DinteractiveMode=false \
       -DarchetypeCatalog=local \
       -q
+    # Rename directory from artifactId to groupId
+    if [ -d "$lib_name" ] && [ "$lib_name" != "$group_id" ]; then
+      mv "$lib_name" "$group_id"
+    fi
     cd ..
   else
     ensure_archetype_installed "tomeex-lib-archetype"
-    print_info "Creating library '$lib_name'..."
+    print_info "Creating library '$lib_name' (groupId: $group_id)..."
     cd projects || exit 1
     mvn archetype:generate \
       -DgroupId="$group_id" \
@@ -959,14 +1039,17 @@ create_library() {
       -DinteractiveMode=false \
       -DarchetypeCatalog=local \
       -q
-
+    # Rename directory from artifactId to groupId
+    if [ -d "$lib_name" ] && [ "$lib_name" != "$group_id" ]; then
+      mv "$lib_name" "$group_id"
+    fi
     cd ..
   fi
-  if [ ! -d "projects/$lib_name" ]; then
-    print_error "Failed to create library '$lib_name'"
+  if [ ! -d "projects/$group_id" ]; then
+    print_error "Failed to create library '$group_id'"
     exit 1
   fi
-  print_info "Created: projects/$lib_name/ with groupId: $group_id"
+  print_info "Created: projects/$group_id/ with artifactId: $lib_name"
 }
 
 install_libs_from_workspace() {
@@ -1141,6 +1224,14 @@ parse_args() {
         GROUP_ID="$2"
         shift 2
         ;;
+      --artifactid)
+        if [ -z "$2" ]; then
+          print_error "--artifactid requires an artifactId value"
+          exit 1
+        fi
+        ARTIFACT_ID="$2"
+        shift 2
+        ;;
       --help|-h)
         show_usage
         exit 0
@@ -1181,7 +1272,7 @@ main() {
     exit 0
   fi
   if [ -n "$REMOVE_WEBAPP" ]; then
-    remove_webapp "$REMOVE_WEBAPP"
+    remove_webapp "$REMOVE_WEBAPP" "$ARTIFACT_ID"
     exit 0
   fi
   if [ -n "$CREATE_LIBRARY" ]; then

@@ -88,7 +88,7 @@ clean:
 # Configure Git safe directory
 git-safe:
 	@echo "Adding project directory to Git safe.directory..."
-	@git config --global --add safe.directory /workspace/projects/${artifactId}
+	@git config --global --add safe.directory /workspace/projects/${groupId}
 	@echo "Git safe.directory configured"
 
 # Database CLI - Connect to application database or execute SQL file

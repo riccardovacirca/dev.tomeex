@@ -10,15 +10,16 @@ default:
 
 help:
 	@echo "Usage:"
-	@echo "  make app name=<project_name> id=<groupId> [db=<db_type>]"
-	@echo "  make lib name=<project_name> id=<groupId> [db=true]"
-	@echo "  make remove name=<project_name>"
+	@echo "  make app name=<artifactId> id=<groupId> [db=<db_type>]"
+	@echo "  make lib name=<artifactId> id=<groupId> [db=true]"
+	@echo "  make remove id=<groupId>"
 	@echo "  make list"
 	@echo "  make archetypes"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make app name=myapi id=com.example db=postgres"
 	@echo "  make lib name=mylib id=com.example db=true"
+	@echo "  make remove id=com.example"
 
 app:
 	@if [ -z "$(name)" ]; then \
@@ -57,19 +58,25 @@ lib:
 	fi
 
 remove:
-	@if [ -z "$(name)" ]; then \
-		echo "Error: name parameter required"; \
-		echo "Usage: make remove name=<project_name>"; \
+	@if [ -z "$(id)" ]; then \
+		echo "Error: id parameter required"; \
+		echo "Usage: make remove id=<groupId>"; \
 		exit 1; \
 	fi
-	@if [ -d "$(PROJECTS_DIR)/$(name)" ]; then \
-		if [ -f "$(PROJECTS_DIR)/$(name)/pom.xml" ] && grep -q "<packaging>war</packaging>" "$(PROJECTS_DIR)/$(name)/pom.xml"; then \
-			./install.sh --remove-webapp $(name); \
+	@if [ -d "$(PROJECTS_DIR)/$(id)" ]; then \
+		if [ -f "$(PROJECTS_DIR)/$(id)/pom.xml" ]; then \
+			artifactId=$$(grep -m1 "<artifactId>" "$(PROJECTS_DIR)/$(id)/pom.xml" | sed 's/.*<artifactId>\(.*\)<\/artifactId>.*/\1/' | xargs); \
+			if grep -q "<packaging>war</packaging>" "$(PROJECTS_DIR)/$(id)/pom.xml"; then \
+				./install.sh --remove-webapp $(id) --artifactid $$artifactId; \
+			else \
+				./install.sh --remove-library $(id); \
+			fi; \
 		else \
-			./install.sh --remove-library $(name); \
+			echo "Error: pom.xml not found in $(PROJECTS_DIR)/$(id)/"; \
+			exit 1; \
 		fi; \
 	else \
-		echo "Error: Project '$(name)' not found in $(PROJECTS_DIR)/ directory"; \
+		echo "Error: Project '$(id)' not found in $(PROJECTS_DIR)/ directory"; \
 		exit 1; \
 	fi
 
