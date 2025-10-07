@@ -7,6 +7,8 @@ INSTALL_POSTGRES=false
 INSTALL_MARIADB=false
 INSTALL_SQLITE=false
 INSTALL_CLAUDE=false
+PURGE_POSTGRES=false
+PURGE_MARIADB=false
 CREATE_WEBAPP=""
 CREATE_LIBRARY=""
 REMOVE_WEBAPP=""
@@ -508,6 +510,68 @@ setup_mariadb() {
   print_info "Admin User: root"
   print_info "Connection: localhost:${MARIADB_PORT}/mysql"
   print_info "Network: ${MARIADB_CONTAINER_NAME}"
+  echo ""
+}
+
+purge_postgres() {
+  print_header "PostgreSQL Database Removal"
+  echo ""
+  POSTGRES_CONTAINER_NAME=$(grep POSTGRES_CONTAINER_NAME .env | cut -d= -f2)
+  VOLUME_NAME="tomeex-postgres-data"
+
+  # Stop and remove container
+  if docker ps -a --format 'table {{.Names}}' | grep -q "^${POSTGRES_CONTAINER_NAME}$"; then
+    print_info "Stopping PostgreSQL container..."
+    docker stop "${POSTGRES_CONTAINER_NAME}" > /dev/null 2>&1 || true
+    print_info "Removing PostgreSQL container..."
+    docker rm "${POSTGRES_CONTAINER_NAME}" > /dev/null 2>&1
+    print_info "PostgreSQL container removed"
+  else
+    print_info "PostgreSQL container not found, skipping container removal"
+  fi
+
+  # Remove volume
+  if docker volume ls --format '{{.Name}}' | grep -q "^${VOLUME_NAME}$"; then
+    print_info "Removing PostgreSQL data volume..."
+    docker volume rm "${VOLUME_NAME}" > /dev/null 2>&1
+    print_info "PostgreSQL volume removed"
+  else
+    print_info "PostgreSQL volume not found, skipping volume removal"
+  fi
+
+  echo ""
+  print_info "=== PostgreSQL Removal Complete ==="
+  echo ""
+}
+
+purge_mariadb() {
+  print_header "MariaDB Database Removal"
+  echo ""
+  MARIADB_CONTAINER_NAME=$(grep MARIADB_CONTAINER_NAME .env | cut -d= -f2)
+  VOLUME_NAME="tomeex-mariadb-data"
+
+  # Stop and remove container
+  if docker ps -a --format 'table {{.Names}}' | grep -q "^${MARIADB_CONTAINER_NAME}$"; then
+    print_info "Stopping MariaDB container..."
+    docker stop "${MARIADB_CONTAINER_NAME}" > /dev/null 2>&1 || true
+    print_info "Removing MariaDB container..."
+    docker rm "${MARIADB_CONTAINER_NAME}" > /dev/null 2>&1
+    print_info "MariaDB container removed"
+  else
+    print_info "MariaDB container not found, skipping container removal"
+  fi
+
+  # Remove volume
+  if docker volume ls --format '{{.Name}}' | grep -q "^${VOLUME_NAME}$"; then
+    print_info "Removing MariaDB data volume..."
+    docker volume rm "${VOLUME_NAME}" > /dev/null 2>&1
+    print_info "MariaDB volume removed"
+  else
+    print_info "MariaDB volume not found, skipping volume removal"
+  fi
+
+  echo ""
+  print_info "=== MariaDB Removal Complete ==="
   echo ""
 }
 
@@ -1078,15 +1142,19 @@ lib_dir="/workspace/lib"
 find "$lib_dir" -maxdepth 1 -name "*.jar" ! -name "*-sources.jar" ! -name "*-javadoc.jar" 2>/dev/null | while IFS= read -r jar_file; do
   # Create temp directory for extraction
   temp_dir=$(mktemp -d)
+  cd "$temp_dir"
 
-  # Extract pom.properties using unzip (faster than jar)
-  pom_props=$(unzip -p "$jar_file" "META-INF/maven/*/*/pom.properties" 2>/dev/null | head -c 10000)
+  # Extract META-INF directory using jar command
+  jar -xf "$jar_file" META-INF/ 2>/dev/null || continue
 
-  if [ -n "$pom_props" ]; then
-    # Extract Maven coordinates directly from content
-    groupId=$(echo "$pom_props" | grep "^groupId=" | cut -d= -f2 | tr -d "\r\n ")
-    artifactId=$(echo "$pom_props" | grep "^artifactId=" | cut -d= -f2 | tr -d "\r\n ")
-    version=$(echo "$pom_props" | grep "^version=" | cut -d= -f2 | tr -d "\r\n ")
+  # Find pom.properties file
+  pom_props_file=$(find META-INF/maven -name "pom.properties" 2>/dev/null | head -1)
+
+  if [ -n "$pom_props_file" ] && [ -f "$pom_props_file" ]; then
+    # Extract Maven coordinates from pom.properties
+    groupId=$(grep "^groupId=" "$pom_props_file" | cut -d= -f2 | tr -d "\r\n ")
+    artifactId=$(grep "^artifactId=" "$pom_props_file" | cut -d= -f2 | tr -d "\r\n ")
+    version=$(grep "^version=" "$pom_props_file" | cut -d= -f2 | tr -d "\r\n ")
 
     if [ -n "$groupId" ] && [ -n "$artifactId" ] && [ -n "$version" ]; then
       echo "[info] Installing $artifactId-$version.jar..."
@@ -1146,7 +1214,8 @@ find "$lib_dir" -maxdepth 1 -name "*.jar" ! -name "*-sources.jar" ! -name "*-jav
     echo "[warn] No pom.properties found in $jar_file, skipping installation"
   fi
 
-  # Cleanup temp directory
+  # Cleanup temp directory and return to original directory
+  cd /
   rm -rf "$temp_dir" 2>/dev/null || true
 done
 '
@@ -1170,6 +1239,14 @@ parse_args() {
         ;;
       --claude)
         INSTALL_CLAUDE=true
+        shift
+        ;;
+      --purge-postgres)
+        PURGE_POSTGRES=true
+        shift
+        ;;
+      --purge-mariadb)
+        PURGE_MARIADB=true
         shift
         ;;
       --create-webapp)
@@ -1255,6 +1332,8 @@ show_usage() {
   echo "  --mariadb                Also install and start MariaDB container"
   echo "  --sqlite                 Also install SQLite3 in TomEE container"
   echo "  --claude                 Install Claude Code with NVM and Node.js 18"
+  echo "  --purge-postgres         Stop and remove PostgreSQL container and volume"
+  echo "  --purge-mariadb          Stop and remove MariaDB container and volume"
   echo "  --create-webapp  <name>  Create new Maven webapp with Makefile and README"
   echo "  --create-library <name>  Create new JAR library with Makefile and README"
   echo "  --remove-webapp  <name>  Remove webapp and associated database"
@@ -1267,6 +1346,14 @@ show_usage() {
 main() {
   # Parse command line arguments
   parse_args "$@"
+  if [ "$PURGE_POSTGRES" = "true" ]; then
+    purge_postgres
+    exit 0
+  fi
+  if [ "$PURGE_MARIADB" = "true" ]; then
+    purge_mariadb
+    exit 0
+  fi
   if [ -n "$CREATE_WEBAPP" ]; then
     create_webapp "$CREATE_WEBAPP" "$DATABASE_TYPE"
     exit 0
