@@ -768,13 +768,14 @@ EOF
 create_webapp_database() {
   local app_name="$1"
   local db_type="$2"
+  local db_password="${3:-secret}"
   print_info "Creating database and user for webapp '$app_name'..."
   case "$db_type" in
     postgres)
-      create_postgres_webapp_database "$app_name"
+      create_postgres_webapp_database "$app_name" "$db_password"
       ;;
     mariadb)
-      create_mariadb_webapp_database "$app_name"
+      create_mariadb_webapp_database "$app_name" "$db_password"
       ;;
     sqlite)
       create_sqlite_webapp_database "$app_name"
@@ -787,6 +788,7 @@ create_webapp_database() {
 
 create_postgres_webapp_database() {
   local app_name="$1"
+  local db_password="$2"
   local container_name=$(grep POSTGRES_CONTAINER_NAME .env | cut -d= -f2)
   local admin_password=$(grep POSTGRES_PASSWORD .env | cut -d= -f2)
   export PGPASSWORD="$admin_password"
@@ -799,12 +801,12 @@ create_postgres_webapp_database() {
   fi
 
   # Create user, database and grant privileges (separate commands)
-  if psql -h "$container_name" -p 5432 -U postgres -d postgres -c "CREATE USER ${app_name} WITH PASSWORD 'secret';" > /dev/null 2>&1 && \
+  if psql -h "$container_name" -p 5432 -U postgres -d postgres -c "CREATE USER ${app_name} WITH PASSWORD '${db_password}';" > /dev/null 2>&1 && \
      psql -h "$container_name" -p 5432 -U postgres -d postgres -c "CREATE DATABASE ${app_name} OWNER ${app_name};" > /dev/null 2>&1 && \
      psql -h "$container_name" -p 5432 -U postgres -d postgres -c "GRANT ALL PRIVILEGES ON DATABASE ${app_name} TO ${app_name};" > /dev/null 2>&1; then
     unset PGPASSWORD
     print_info "PostgreSQL database '$app_name' created successfully"
-    print_info "Database: $app_name | User: $app_name | Password: secret"
+    print_info "Database: $app_name | User: $app_name | Password: ${db_password}"
   else
     unset PGPASSWORD
     print_error "Failed to create PostgreSQL database '$app_name'"
@@ -814,6 +816,7 @@ create_postgres_webapp_database() {
 
 create_mariadb_webapp_database() {
   local app_name="$1"
+  local db_password="$2"
   local container_name=$(grep MARIADB_CONTAINER_NAME .env | cut -d= -f2)
   local root_password=$(grep MARIADB_ROOT_PASSWORD .env | cut -d= -f2)
 
@@ -834,11 +837,11 @@ create_mariadb_webapp_database() {
 
   # Create database, user and grant privileges (separate commands)
   if mysql -h "$container_name" -P 3306 -u root -p"$root_password" -e "CREATE DATABASE IF NOT EXISTS ${app_name};" 2>/dev/null && \
-     mysql -h "$container_name" -P 3306 -u root -p"$root_password" -e "CREATE USER IF NOT EXISTS '${app_name}'@'%' IDENTIFIED BY 'secret';" 2>/dev/null && \
+     mysql -h "$container_name" -P 3306 -u root -p"$root_password" -e "CREATE USER IF NOT EXISTS '${app_name}'@'%' IDENTIFIED BY '${db_password}';" 2>/dev/null && \
      mysql -h "$container_name" -P 3306 -u root -p"$root_password" -e "GRANT ALL PRIVILEGES ON ${app_name}.* TO '${app_name}'@'%';" 2>/dev/null && \
      mysql -h "$container_name" -P 3306 -u root -p"$root_password" -e "FLUSH PRIVILEGES;" 2>/dev/null; then
     print_info "MariaDB setup complete for webapp '$app_name'"
-    print_info "Database: $app_name | User: $app_name | Password: secret"
+    print_info "Database: $app_name | User: $app_name | Password: ${db_password}"
   else
     print_error "Failed to create MariaDB database '$app_name'"
     return 1
@@ -996,7 +999,15 @@ create_webapp() {
   fi
   # Create database and user for webapp if database type is specified
   if [ -n "$db_type" ]; then
-    create_webapp_database "$app_name" "$db_type"
+    # Read password from .env if exists, otherwise use default 'secret'
+    local db_password="secret"
+    if [ -f "projects/$group_id/.env" ]; then
+      db_password=$(grep "^DB_PASSWORD=" "projects/$group_id/.env" | cut -d= -f2)
+      if [ -z "$db_password" ]; then
+        db_password="secret"
+      fi
+    fi
+    create_webapp_database "$app_name" "$db_type" "$db_password"
     create_webapp_env_file "$group_id" "$app_name" "$db_type"
   fi
   print_info "Created: projects/$group_id/ with artifactId: $app_name"
@@ -1289,6 +1300,16 @@ parse_args() {
         DATABASE_TYPE="$2"
         shift 2
         ;;
+      --setup-db)
+        if [ -z "$2" ] || [ -z "$3" ] || [ -z "$4" ]; then
+          print_error "--setup-db requires: <db_name> <db_type> <db_password>"
+          exit 1
+        fi
+        SETUP_DB_NAME="$2"
+        SETUP_DB_TYPE="$3"
+        SETUP_DB_PASSWORD="$4"
+        shift 4
+        ;;
       --with-database)
         WITH_DATABASE=true
         shift
@@ -1352,6 +1373,10 @@ main() {
   fi
   if [ "$PURGE_MARIADB" = "true" ]; then
     purge_mariadb
+    exit 0
+  fi
+  if [ -n "$SETUP_DB_NAME" ]; then
+    create_webapp_database "$SETUP_DB_NAME" "$SETUP_DB_TYPE" "$SETUP_DB_PASSWORD"
     exit 0
   fi
   if [ -n "$CREATE_WEBAPP" ]; then

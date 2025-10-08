@@ -49,6 +49,29 @@ compile:
 	@echo "Compiling $(APP_NAME)..."
 	@export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 && mvn compile -q
 
+# Setup database from .env configuration
+setup-database:
+	@if [ ! -f .env ]; then \
+		echo "No .env file found, skipping database setup"; \
+		exit 0; \
+	fi
+	@DB_NAME=$$(grep "^DB_NAME=" .env | cut -d= -f2); \
+	DB_TYPE=$$(grep "^DB_TYPE=" .env | cut -d= -f2); \
+	DB_PASSWORD=$$(grep "^DB_PASSWORD=" .env | cut -d= -f2); \
+	if [ -z "$$DB_TYPE" ] || [ -z "$$DB_NAME" ]; then \
+		echo "No database configuration in .env, skipping"; \
+		exit 0; \
+	fi; \
+	if [ -z "$$DB_PASSWORD" ]; then \
+		DB_PASSWORD="secret"; \
+	fi; \
+	echo "Setting up $$DB_TYPE database '$$DB_NAME'..."; \
+	cd /workspace && ./install.sh --setup-db "$$DB_NAME" "$$DB_TYPE" "$$DB_PASSWORD"
+
+# Install (first-time deployment for cloned projects)
+install: setup-database deploy
+	@echo "Installation complete"
+
 # Deployment
 deploy: build
 	@echo "Deploying $(APP_NAME) to $(CONTAINER_NAME)..."
@@ -131,11 +154,58 @@ push:
 	@git push
 	@echo "Push completed successfully"
 
+# Database CLI - Connect to application database or execute SQL file
+dbcli:
+	@if [ ! -f .env ]; then \
+		echo "Error: .env file not found"; \
+		exit 1; \
+	fi
+	@. ./.env && \
+	if [ -n "$(load)" ]; then \
+		if [ ! -f "$(load)" ]; then \
+			echo "Error: SQL file not found: $(load)"; \
+			exit 1; \
+		fi; \
+		if [ "$$DB_TYPE" = "postgres" ]; then \
+			echo "Loading SQL file into PostgreSQL database: $$DB_NAME"; \
+			PGPASSWORD=$$DB_PASSWORD psql -h $$DB_HOST -p $$DB_PORT -U $$DB_USER -d $$DB_NAME -f "$(load)"; \
+		elif [ "$$DB_TYPE" = "mariadb" ]; then \
+			echo "Loading SQL file into MariaDB database: $$DB_NAME"; \
+			mysql -h $$DB_HOST -P $$DB_PORT -u $$DB_USER -p$$DB_PASSWORD $$DB_NAME < "$(load)"; \
+		elif [ "$$DB_TYPE" = "sqlite" ]; then \
+			echo "Loading SQL file into SQLite database: $$DB_PATH"; \
+			sqlite3 $$DB_PATH < "$(load)"; \
+		else \
+			echo "Error: Unknown database type: $$DB_TYPE"; \
+			exit 1; \
+		fi; \
+		echo "SQL file loaded successfully"; \
+	else \
+		if [ "$$DB_TYPE" = "postgres" ]; then \
+			echo "Connecting to PostgreSQL database: $$DB_NAME"; \
+			echo "Use \\q to quit"; \
+			PGPASSWORD=$$DB_PASSWORD psql -h $$DB_HOST -p $$DB_PORT -U $$DB_USER -d $$DB_NAME; \
+		elif [ "$$DB_TYPE" = "mariadb" ]; then \
+			echo "Connecting to MariaDB database: $$DB_NAME"; \
+			echo "Use 'exit' or 'quit' to quit"; \
+			mysql -h $$DB_HOST -P $$DB_PORT -u $$DB_USER -p$$DB_PASSWORD $$DB_NAME; \
+		elif [ "$$DB_TYPE" = "sqlite" ]; then \
+			echo "Connecting to SQLite database: $$DB_PATH"; \
+			echo "Use .quit to quit"; \
+			sqlite3 $$DB_PATH; \
+		else \
+			echo "Error: Unknown database type: $$DB_TYPE"; \
+			exit 1; \
+		fi; \
+	fi
+
 # Display help
 help:
 	@echo "$(APP_NAME) Webapp - Available targets:"
 	@echo ""
 	@echo "  quick-deploy  - Quick incremental deploy (compile + rsync) [DEFAULT]"
+	@echo "  install       - First-time deployment (setup DB + deploy)"
+	@echo "  setup-database - Create database from .env configuration"
 	@echo "  build         - Build WAR file (dev profile with reloadable=true)"
 	@echo "  release       - Create production release package (tar.gz)"
 	@echo "  compile       - Compile source code"
@@ -145,6 +215,8 @@ help:
 	@echo "  clean         - Clean build artifacts and remove from TomEE"
 	@echo "  git-safe      - Add project to Git safe.directory"
 	@echo "  push          - Git add, commit and push (requires m=\"message\")"
+	@echo "  dbcli         - Connect to application database"
+	@echo "  dbcli load=<file.sql> - Execute SQL file in database"
 	@echo ""
 	@echo "  help          - Show this help message"
 	@echo ""
@@ -152,4 +224,4 @@ help:
 	@echo ""
 	@echo "For clean redeploy: make clean && make deploy"
 
-.PHONY: build release compile deploy quick-deploy test test-verbose clean git-safe push help
+.PHONY: build release compile setup-database install deploy quick-deploy test test-verbose clean git-safe push dbcli help
