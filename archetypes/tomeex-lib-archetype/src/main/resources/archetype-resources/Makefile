@@ -3,6 +3,10 @@ MAKEFLAGS += --no-print-directory
 # ${artifactId} Library Build System
 # Usage: make [target]
 
+# Git Configuration (optional - override if needed)
+# GIT_USER = Your Name
+# GIT_MAIL = your.email@example.com
+
 .DEFAULT_GOAL := install
 
 # Build targets
@@ -83,6 +87,42 @@ git-safe:
 	@git config --global --add safe.directory /workspace/projects/${groupId}
 	@echo "Git safe.directory configured"
 
+# Git commit and push
+push:
+	@if [ -z "$(m)" ]; then \
+		echo "Error: commit message required"; \
+		echo "Usage: make push m=\"<commit message>\""; \
+		echo "Example: make push m=\"updated library\""; \
+		exit 1; \
+	fi
+	@echo "Configuring Git..."
+	@git config --global --add safe.directory /workspace/projects/${groupId}
+	@USER="$(GIT_USER)"; \
+	MAIL="$(GIT_MAIL)"; \
+	if [ -z "$$USER" ] || [ -z "$$MAIL" ]; then \
+		if [ -f /workspace/.env ]; then \
+			USER=$$(grep "^GIT_USER=" /workspace/.env | cut -d= -f2 | sed 's/^#.*//'); \
+			MAIL=$$(grep "^GIT_MAIL=" /workspace/.env | cut -d= -f2 | sed 's/^#.*//'); \
+		fi; \
+	fi; \
+	if [ -z "$$USER" ] || [ -z "$$MAIL" ]; then \
+		echo "Error: Git credentials not configured"; \
+		echo "Please set GIT_USER and GIT_MAIL either:"; \
+		echo "  1. In this Makefile (uncomment and edit lines 7-8)"; \
+		echo "  2. In /workspace/.env file"; \
+		exit 1; \
+	fi; \
+	git config user.name "$$USER"; \
+	git config user.email "$$MAIL"; \
+	echo "Git configured: $$USER <$$MAIL>"
+	@echo "Adding files to Git..."
+	@git add .
+	@echo "Committing changes..."
+	@git commit -m "$(m)"
+	@echo "Pushing to remote repository..."
+	@git push
+	@echo "Push completed successfully"
+
 # Check if library is available in local repo
 check-repo:
 	@echo "Checking if ${artifactId} is installed in local Maven repository:"
@@ -114,9 +154,10 @@ help:
 	@echo "  docs             - Generate Javadoc HTML documentation"
 	@echo ""
 	@echo "  git-safe         - Add project to Git safe.directory"
+	@echo "  push             - Git add, commit and push (requires m=\"message\")"
 	@echo "  check-repo       - Check if library is in local Maven repo"
 	@echo "  coordinates      - Show Maven dependency coordinates"
 	@echo ""
 	@echo "  help             - Show this help message"
 
-.PHONY: build compile test test-verbose install install-sources install-javadoc install-full clean docs git-safe check-repo coordinates help
+.PHONY: build compile test test-verbose install install-sources install-javadoc install-full clean docs git-safe push check-repo coordinates help

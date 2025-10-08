@@ -3,7 +3,7 @@ MAKEFLAGS += --no-print-directory
 
 PROJECTS_DIR = projects
 
-.PHONY: help app lib remove archetypes list default
+.PHONY: help app lib remove archetypes list push default
 
 default:
 	@$(MAKE) help
@@ -15,11 +15,13 @@ help:
 	@echo "  make remove id=<groupId>"
 	@echo "  make list"
 	@echo "  make archetypes"
+	@echo "  make push m=\"<commit message>\""
 	@echo ""
 	@echo "Examples:"
 	@echo "  make app name=myapi id=com.example db=postgres"
 	@echo "  make lib name=mylib id=com.example db=true"
 	@echo "  make remove id=com.example"
+	@echo "  make push m=\"updated project\""
 
 app:
 	@if [ -z "$(name)" ]; then \
@@ -123,3 +125,36 @@ list:
 		echo "No projects found in $(PROJECTS_DIR)/"; \
 		echo ""; \
 	fi
+
+push:
+	@if [ -z "$(m)" ]; then \
+		echo "Error: commit message required"; \
+		echo "Usage: make push m=\"<commit message>\""; \
+		echo "Example: make push m=\"updated project\""; \
+		exit 1; \
+	fi
+	@echo "Configuring Git..."
+	@git config --global --add safe.directory /workspace
+	@if [ -f .env ]; then \
+		GIT_USER=$$(grep "^GIT_USER=" .env | cut -d= -f2); \
+		GIT_MAIL=$$(grep "^GIT_MAIL=" .env | cut -d= -f2); \
+		if [ -n "$$GIT_USER" ] && [ -n "$$GIT_MAIL" ]; then \
+			git config user.name "$$GIT_USER"; \
+			git config user.email "$$GIT_MAIL"; \
+			echo "Git configured: $$GIT_USER <$$GIT_MAIL>"; \
+		else \
+			echo "Warning: GIT_USER or GIT_MAIL not set in .env"; \
+			echo "Please configure Git credentials in .env file"; \
+			exit 1; \
+		fi; \
+	else \
+		echo "Error: .env file not found"; \
+		exit 1; \
+	fi
+	@echo "Adding files to Git..."
+	@git add .
+	@echo "Committing changes..."
+	@git commit -m "$(m)"
+	@echo "Pushing to remote repository..."
+	@git push
+	@echo "Push completed successfully"
