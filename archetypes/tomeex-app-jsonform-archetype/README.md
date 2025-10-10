@@ -1,6 +1,6 @@
-# Sportello Scenario Maven Archetype
+# TomEEx JSON Form Archetype
 
-Maven archetype for creating JSON-Driven Scenario Architecture applications in Java.
+Maven archetype for adding JSON-Driven Scenario Architecture to TomEEx webapps.
 
 **Ported from:** PHP Sportello SCAI system (`app/Helpers/SportelloHelpers.php`)
 
@@ -31,14 +31,14 @@ This installs the archetype to `~/.m2/repository/`.
 
 ```bash
 mvn archetype:generate \
-  -DarchetypeGroupId=com.olomedia.sportello \
-  -DarchetypeArtifactId=sportello-scenario-archetype \
-  -DarchetypeVersion=1.0.0-SNAPSHOT \
+  -DarchetypeGroupId=dev.tomeex.archetypes \
+  -DarchetypeArtifactId=tomeex-app-jsonform-archetype \
+  -DarchetypeVersion=1.0.0 \
   -DgroupId=com.mycompany \
-  -DartifactId=my-scenario-app \
+  -DartifactId=my-jsonform-app \
   -Dversion=1.0.0-SNAPSHOT \
   -Dpackage=com.mycompany.scenario \
-  -DappServer=tomcat
+  -DappServer=tomee
 ```
 
 ### 3. Feature Selection via -D Parameters
@@ -69,7 +69,7 @@ mvn archetype:generate \
 | `enableBreadcrumbs` | `true` | Auto-generated breadcrumbs |
 | `enableSchemaValidation` | `true` | JSON Schema validation |
 | `enableDynamicEnums` | `true` | Dynamic select/enum population |
-| `appServer` | `tomcat` | Target server (`tomcat` or `tomee`) |
+| `appServer` | `tomee` | Target server (`tomcat` or `tomee`) |
 
 ## 🏗️ Generated Project Structure
 

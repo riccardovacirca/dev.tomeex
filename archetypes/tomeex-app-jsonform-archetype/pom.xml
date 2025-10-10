@@ -5,18 +5,18 @@
          http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.olomedia.sportello</groupId>
-    <artifactId>sportello-scenario-archetype</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
+    <groupId>dev.tomeex.archetypes</groupId>
+    <artifactId>tomeex-app-jsonform-archetype</artifactId>
+    <version>1.0.0</version>
     <packaging>maven-archetype</packaging>
 
-    <name>Sportello Scenario Archetype</name>
-    <description>Maven Archetype for JSON-Driven Scenario Architecture (ported from PHP Sportello SCAI)</description>
+    <name>TomEEx JSON Form Archetype</name>
+    <description>Maven Archetype for JSON-Driven Scenario Architecture add-on for TomEEx webapps</description>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.source>11</maven.compiler.source>
-        <maven.compiler.target>11</maven.compiler.target>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
     </properties>
 
     <build>

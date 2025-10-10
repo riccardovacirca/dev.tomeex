@@ -134,6 +134,8 @@ create_gitignore() {
 !archetypes/**
 !docs/
 !docs/**
+!lib/
+!lib/**
 !examples/
 !examples/**
 !install.sh
