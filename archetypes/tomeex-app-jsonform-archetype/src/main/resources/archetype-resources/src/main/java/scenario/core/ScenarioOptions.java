@@ -12,7 +12,7 @@ import java.util.List;
  * Options configuration for a Scenario.
  * Contains schema reference, API endpoints, and action configurations.
  *
- * @author Sportello Archetype Generator
+ * @author TomEEx Dev Team
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class ScenarioOptions {

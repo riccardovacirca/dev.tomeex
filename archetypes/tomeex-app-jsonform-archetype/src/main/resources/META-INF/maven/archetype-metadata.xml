@@ -56,7 +56,7 @@
     </requiredProperties>
 
     <fileSets>
-        <!-- Source files -->
+        <!-- Source files (packaged in JAR) -->
         <fileSet filtered="true" packaged="true">
             <directory>src/main/java</directory>
             <includes>
@@ -64,7 +64,7 @@
             </includes>
         </fileSet>
 
-        <!-- Resources -->
+        <!-- Resources (packaged in JAR) -->
         <fileSet filtered="true">
             <directory>src/main/resources</directory>
             <includes>
@@ -72,7 +72,7 @@
             </includes>
         </fileSet>
 
-        <!-- Web resources -->
+        <!-- Templates and examples (NOT packaged, for manual copy) -->
         <fileSet filtered="true">
             <directory>src/main/webapp</directory>
             <includes>
@@ -85,6 +85,14 @@
             <directory>src/test/java</directory>
             <includes>
                 <include>**/*.java</include>
+            </includes>
+        </fileSet>
+
+        <!-- README for integration instructions -->
+        <fileSet filtered="true">
+            <directory></directory>
+            <includes>
+                <include>INTEGRATION.md</include>
             </includes>
         </fileSet>
     </fileSets>

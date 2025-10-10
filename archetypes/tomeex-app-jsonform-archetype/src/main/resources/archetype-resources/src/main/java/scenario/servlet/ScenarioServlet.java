@@ -33,7 +33,7 @@ import java.nio.file.Paths;
  * - GET /api/scenario/list                - List all scenarios
  * - GET /api/scenario/{scenarioKey}       - Get specific scenario
  *
- * @author Sportello Archetype Generator
+ * @author TomEEx Dev Team
  */
 @WebServlet(
     name = "ScenarioServlet",

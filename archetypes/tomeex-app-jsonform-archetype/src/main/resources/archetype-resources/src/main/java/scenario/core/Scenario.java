@@ -22,7 +22,7 @@ import java.util.Map;
  * - Role-based authorization
  * - Breadcrumb navigation
  *
- * @author Sportello Archetype Generator
+ * @author TomEEx Dev Team
  * @version 1.0.0
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -141,10 +141,10 @@ public class Scenario {
     @Override
     public String toString() {
         return "Scenario{" +
-                "key='" + key + ${symbol_escape}'' +
-                ", title='" + title + ${symbol_escape}'' +
-                ", component='" + component + ${symbol_escape}'' +
-                ", route='" + route + ${symbol_escape}'' +
+                "key='" + key + '${symbol_escape}'' +
+                ", title='" + title + '${symbol_escape}'' +
+                ", component='" + component + '${symbol_escape}'' +
+                ", route='" + route + '${symbol_escape}'' +
                 '}';
     }
 

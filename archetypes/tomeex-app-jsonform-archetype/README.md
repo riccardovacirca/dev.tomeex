@@ -1,12 +1,12 @@
 # TomEEx JSON Form Archetype
 
-Maven archetype for adding JSON-Driven Scenario Architecture to TomEEx webapps.
+Maven archetype for creating a **JAR library add-on** that provides JSON-Driven Scenario Architecture to TomEEx webapps.
 
 **Ported from:** PHP Sportello SCAI system (`app/Helpers/SportelloHelpers.php`)
 
 ## 🎯 Overview
 
-This archetype generates a complete Java web application that implements the **JSON-Driven Scenario Architecture** pattern, where:
+This archetype generates a **reusable JAR library** that implements the **JSON-Driven Scenario Architecture** pattern, where:
 
 - **Scenarios** define pages/views (LIST, FORM, DETAIL)
 - **Schemas** define form fields and grid columns via JSON
@@ -21,25 +21,51 @@ All UI and business logic are **configured via JSON**, not hardcoded!
 ### 1. Install Archetype to Local Maven Repository
 
 ```bash
-cd maven-archetype
+cd /workspace/archetypes/tomeex-app-jsonform-archetype
+export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 mvn clean install
 ```
 
 This installs the archetype to `~/.m2/repository/`.
 
-### 2. Generate New Project
+### 2. Generate JSON Form Library
 
 ```bash
 mvn archetype:generate \
   -DarchetypeGroupId=dev.tomeex.archetypes \
   -DarchetypeArtifactId=tomeex-app-jsonform-archetype \
   -DarchetypeVersion=1.0.0 \
-  -DgroupId=com.mycompany \
-  -DartifactId=my-jsonform-app \
+  -DgroupId=dev.tomeex.addons \
+  -DartifactId=jsonform-addon \
   -Dversion=1.0.0-SNAPSHOT \
-  -Dpackage=com.mycompany.scenario \
-  -DappServer=tomee
+  -Dpackage=dev.tomeex.jsonform
 ```
+
+### 3. Build and Install JAR
+
+```bash
+cd jsonform-addon
+export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+mvn clean install
+```
+
+This creates:
+- `jsonform-addon-1.0.0-SNAPSHOT.jar` → Main library
+- `jsonform-addon-1.0.0-SNAPSHOT-sources.jar` → Sources
+
+### 4. Add to Your TomEEx Webapp
+
+In your webapp's `pom.xml`:
+
+```xml
+<dependency>
+    <groupId>dev.tomeex.addons</groupId>
+    <artifactId>jsonform-addon</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+</dependency>
+```
+
+See **INTEGRATION.md** in the generated project for complete integration instructions.
 
 ### 3. Feature Selection via -D Parameters
 
@@ -71,15 +97,16 @@ mvn archetype:generate \
 | `enableDynamicEnums` | `true` | Dynamic select/enum population |
 | `appServer` | `tomee` | Target server (`tomcat` or `tomee`) |
 
-## 🏗️ Generated Project Structure
+## 🏗️ Generated JAR Library Structure
 
 ```
-my-scenario-app/
-├── pom.xml
+jsonform-addon/
+├── pom.xml                                             (JAR packaging)
+├── INTEGRATION.md                                       (Integration guide)
 ├── src/
 │   ├── main/
 │   │   ├── java/
-│   │   │   └── com/mycompany/scenario/
+│   │   │   └── dev/tomeex/jsonform/
 │   │   │       ├── core/
 │   │   │       │   ├── Scenario.java
 │   │   │       │   └── ScenarioOptions.java
@@ -92,36 +119,70 @@ my-scenario-app/
 │   │   │           └── ScenarioServlet.java            (REST API)
 │   │   ├── resources/
 │   │   │   └── logback.xml
-│   │   └── webapp/
-│   │       ├── WEB-INF/
-│   │       │   ├── web.xml
-│   │       │   └── scenarios/                          (Place modules here)
-│   │       │       └── MyModule/
-│   │       │           └── Config/
-│   │       │               └── json/
-│   │       │                   ├── MyModule.json
-│   │       │                   └── forms/
-│   │       │                       ├── ENTITY_FORM.json
-│   │       │                       └── ENTITY_LIST.json
-│   │       └── index.html
+│   │   └── webapp/                                      (TEMPLATES - copy to your webapp)
+│   │       └── WEB-INF/
+│   │           ├── web.xml                             (Configuration example)
+│   │           └── scenarios/
+│   │               └── json/
+│   │                   ├── main.json                   (Example config)
+│   │                   └── forms/
+│   │                       ├── EXAMPLE_FORM.json
+│   │                       └── EXAMPLE_LIST.json
 │   └── test/
 │       └── java/
-└── README.md
+└── target/
+    ├── jsonform-addon-1.0.0-SNAPSHOT.jar               (Main library)
+    └── jsonform-addon-1.0.0-SNAPSHOT-sources.jar       (Sources)
 ```
 
-## 🚀 Usage
+**Note:** Files in `src/main/webapp/` are templates to copy to your target webapp, not packaged in the JAR.
 
-### 1. Deploy to Tomcat/TomEE
+## 🚀 Integration in TomEEx Webapp
+
+### 1. Add JAR Dependency
+
+Edit your webapp's `pom.xml`:
+
+```xml
+<dependency>
+    <groupId>dev.tomeex.addons</groupId>
+    <artifactId>jsonform-addon</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+</dependency>
+```
+
+### 2. Copy Configuration Templates
 
 ```bash
-cd my-scenario-app
-mvn clean package
+# From JAR library project
+cd jsonform-addon
+cp -r src/main/webapp/WEB-INF/scenarios /workspace/projects/YOUR_WEBAPP/src/main/webapp/WEB-INF/
 
-# For Tomcat
-cp target/my-scenario-app.war $CATALINA_HOME/webapps/
+# Copy web.xml snippet (merge manually)
+cat src/main/webapp/WEB-INF/web.xml
+```
 
-# For TomEE
-mvn tomee:run
+### 3. Update web.xml
+
+Add to your webapp's `web.xml`:
+
+```xml
+<context-param>
+    <param-name>app.name</param-name>
+    <param-value>main</param-value>
+</context-param>
+
+<context-param>
+    <param-name>scenarios.path</param-name>
+    <param-value>${catalina.base}/webapps/YOUR_WEBAPP/WEB-INF/scenarios</param-value>
+</context-param>
+```
+
+### 4. Build and Deploy
+
+```bash
+cd /workspace/projects/YOUR_WEBAPP
+make deploy
 ```
 
 ### 2. Create Scenario Modules

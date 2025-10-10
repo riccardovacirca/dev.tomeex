@@ -10,7 +10,7 @@ import org.slf4j.LoggerFactory;
 /**
  * JSON Schema validator for scenario schemas.
  *
- * @author Sportello Archetype Generator
+ * @author TomEEx Dev Team
  */
 #if($enableSchemaValidation == "true")
 public class SchemaValidator {

@@ -33,7 +33,7 @@ import java.util.*;
  *    - Apply role-based authorization
  *    - Generate breadcrumb navigation
  *
- * @author Sportello Archetype Generator
+ * @author TomEEx Dev Team
  * @version 1.0.0
  */
 public class ScenarioProcessor {

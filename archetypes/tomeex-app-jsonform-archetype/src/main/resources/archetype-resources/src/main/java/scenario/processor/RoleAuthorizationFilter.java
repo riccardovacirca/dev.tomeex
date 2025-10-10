@@ -26,7 +26,7 @@ import java.util.Map;
  * - Maintenance mode visibility
  * - Login status requirements
  *
- * @author Sportello Archetype Generator
+ * @author TomEEx Dev Team
  */
 #if($enableRoleAuthorization == "true")
 public class RoleAuthorizationFilter {

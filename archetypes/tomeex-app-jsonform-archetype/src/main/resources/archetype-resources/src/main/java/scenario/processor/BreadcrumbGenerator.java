@@ -20,7 +20,7 @@ import java.util.*;
  * Generates hierarchical breadcrumb navigation by analyzing scenario relationships
  * through goto-scenario actions.
  *
- * @author Sportello Archetype Generator
+ * @author TomEEx Dev Team
  */
 #if($enableBreadcrumbs == "true")
 public class BreadcrumbGenerator {
