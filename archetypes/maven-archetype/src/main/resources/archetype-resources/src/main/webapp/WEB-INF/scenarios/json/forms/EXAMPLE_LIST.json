@@ -1,0 +1,38 @@
+{
+  "schema": {
+    "id": {
+      "type": "number",
+      "title": "ID"
+    },
+    "name": {
+      "type": "string",
+      "title": "Name"
+    },
+    "description": {
+      "type": "string",
+      "title": "Description"
+    },
+    "created_at": {
+      "type": "datetime-local",
+      "title": "Created"
+    }
+  },
+  "grid": [
+    {
+      "key": "id",
+      "width": "10%"
+    },
+    {
+      "key": "name",
+      "width": "30%"
+    },
+    {
+      "key": "description",
+      "width": "40%"
+    },
+    {
+      "key": "created_at",
+      "width": "20%"
+    }
+  ]
+}

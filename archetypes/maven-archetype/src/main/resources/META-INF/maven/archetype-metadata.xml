@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<archetype-descriptor
+    xmlns="http://maven.apache.org/plugins/maven-archetype-plugin/archetype-descriptor/1.1.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/plugins/maven-archetype-plugin/archetype-descriptor/1.1.0
+    http://maven.apache.org/xsd/archetype-descriptor-1.1.0.xsd"
+    name="sportello-scenario-archetype">
+
+    <requiredProperties>
+        <requiredProperty key="targetWebapp">
+            <defaultValue>my-webapp</defaultValue>
+        </requiredProperty>
+        <requiredProperty key="targetWebappPath">
+            <defaultValue>/path/to/existing-webapp</defaultValue>
+        </requiredProperty>
+        <requiredProperty key="groupId">
+            <defaultValue>com.example</defaultValue>
+        </requiredProperty>
+        <requiredProperty key="artifactId">
+            <defaultValue>scenario-integration</defaultValue>
+        </requiredProperty>
+        <requiredProperty key="version">
+            <defaultValue>1.0.0-SNAPSHOT</defaultValue>
+        </requiredProperty>
+        <requiredProperty key="package">
+            <defaultValue>com.example.scenario</defaultValue>
+        </requiredProperty>
+
+        <!-- Feature flags for scenario capabilities -->
+        <requiredProperty key="enableCustomGrid">
+            <defaultValue>true</defaultValue>
+        </requiredProperty>
+        <requiredProperty key="enableCustomForm">
+            <defaultValue>true</defaultValue>
+        </requiredProperty>
+        <requiredProperty key="enableCustomView">
+            <defaultValue>false</defaultValue>
+        </requiredProperty>
+        <requiredProperty key="enableRoleAuthorization">
+            <defaultValue>true</defaultValue>
+        </requiredProperty>
+        <requiredProperty key="enableBreadcrumbs">
+            <defaultValue>true</defaultValue>
+        </requiredProperty>
+        <requiredProperty key="enableSchemaValidation">
+            <defaultValue>true</defaultValue>
+        </requiredProperty>
+        <requiredProperty key="enableDynamicEnums">
+            <defaultValue>true</defaultValue>
+        </requiredProperty>
+
+        <!-- Application server -->
+        <requiredProperty key="appServer">
+            <defaultValue>tomcat</defaultValue>
+        </requiredProperty>
+    </requiredProperties>
+
+    <fileSets>
+        <!-- Source files -->
+        <fileSet filtered="true" packaged="true">
+            <directory>src/main/java</directory>
+            <includes>
+                <include>**/*.java</include>
+            </includes>
+        </fileSet>
+
+        <!-- Resources -->
+        <fileSet filtered="true">
+            <directory>src/main/resources</directory>
+            <includes>
+                <include>**/*</include>
+            </includes>
+        </fileSet>
+
+        <!-- Web resources -->
+        <fileSet filtered="true">
+            <directory>src/main/webapp</directory>
+            <includes>
+                <include>**/*</include>
+            </includes>
+        </fileSet>
+
+        <!-- Test files -->
+        <fileSet filtered="true" packaged="true">
+            <directory>src/test/java</directory>
+            <includes>
+                <include>**/*.java</include>
+            </includes>
+        </fileSet>
+    </fileSets>
+</archetype-descriptor>

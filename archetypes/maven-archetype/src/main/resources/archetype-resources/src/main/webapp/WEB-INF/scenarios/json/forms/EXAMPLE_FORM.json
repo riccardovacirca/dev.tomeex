@@ -1,0 +1,84 @@
+{
+  "schema": {
+    "id": {
+      "type": "number",
+      "title": "ID",
+      "readOnly": true
+    },
+    "name": {
+      "type": "string",
+      "title": "Name",
+      "required": true,
+      "maxLength": 255
+    },
+    "description": {
+      "type": "textarea",
+      "title": "Description",
+      "rows": 5
+    },
+    "active": {
+      "type": "boolean",
+      "title": "Active",
+      "default": true
+    },
+    "created_at": {
+      "type": "datetime-local",
+      "title": "Created At",
+      "readOnly": true
+    },
+    "updated_at": {
+      "type": "datetime-local",
+      "title": "Updated At",
+      "readOnly": true
+    }
+  },
+  "form": [
+    {
+      "type": "fieldset",
+      "htmlClass": "d-none",
+      "items": [
+        {
+          "key": "id"
+        }
+      ]
+    },
+    {
+      "type": "fieldset",
+      "htmlClass": "row",
+      "items": [
+        {
+          "key": "name",
+          "htmlClass": "col-sm-6"
+        },
+        {
+          "key": "active",
+          "htmlClass": "col-sm-6"
+        }
+      ]
+    },
+    {
+      "type": "fieldset",
+      "htmlClass": "row",
+      "items": [
+        {
+          "key": "description",
+          "htmlClass": "col-sm-12"
+        }
+      ]
+    },
+    {
+      "type": "fieldset",
+      "htmlClass": "row",
+      "items": [
+        {
+          "key": "created_at",
+          "htmlClass": "col-sm-6"
+        },
+        {
+          "key": "updated_at",
+          "htmlClass": "col-sm-6"
+        }
+      ]
+    }
+  ]
+}
