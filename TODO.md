@@ -16,4 +16,5 @@
 - Aggiungere al progetto una cartella tomeex-dsl per i DSL degli agenti AI
 
 - quick deploy non funziona
-- la libreria tools non è documentata
+
+- [OK] la libreria tools non è documentata
