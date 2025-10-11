@@ -957,14 +957,14 @@ create_webapp() {
         ;;
     esac
     # Install only the database archetype if needed
-    ensure_archetype_installed "tomeex-app-database-archetype"
+    ensure_archetype_installed "tomeex-app-database"
     print_info "Creating webapp '$app_name' (groupId: $group_id) with $db_type database..."
     cd projects || exit 1
     mvn archetype:generate \
       -DgroupId="$group_id" \
       -DartifactId="$app_name" \
       -DarchetypeGroupId=dev.tomeex.archetypes \
-      -DarchetypeArtifactId=tomeex-app-database-archetype \
+      -DarchetypeArtifactId=tomeex-app-database \
       -DarchetypeVersion=1.0.0 \
       -DdbType="$db_type" \
       -DinteractiveMode=false \
@@ -977,14 +977,14 @@ create_webapp() {
     cd ..
   else
     # Install only the simple webapp archetype if needed
-    ensure_archetype_installed "tomeex-app-archetype"
+    ensure_archetype_installed "tomeex-app"
     print_info "Creating webapp '$app_name' (groupId: $group_id)..."
     cd projects || exit 1
     mvn archetype:generate \
       -DgroupId="$group_id" \
       -DartifactId="$app_name" \
       -DarchetypeGroupId=dev.tomeex.archetypes \
-      -DarchetypeArtifactId=tomeex-app-archetype \
+      -DarchetypeArtifactId=tomeex-app \
       -DarchetypeVersion=1.0.0 \
       -DinteractiveMode=false \
       -DarchetypeCatalog=local \
@@ -1086,14 +1086,14 @@ create_library() {
     exit 1
   fi
   if [ "$with_db" = "true" ]; then
-    ensure_archetype_installed "tomeex-lib-database-archetype"
+    ensure_archetype_installed "tomeex-lib-database"
     print_info "Creating library '$lib_name' (groupId: $group_id) with multi-database support..."
     cd projects || exit 1
     mvn archetype:generate \
       -DgroupId="$group_id" \
       -DartifactId="$lib_name" \
       -DarchetypeGroupId=dev.tomeex.archetypes \
-      -DarchetypeArtifactId=tomeex-lib-database-archetype \
+      -DarchetypeArtifactId=tomeex-lib-database \
       -DarchetypeVersion=1.0.0 \
       -DinteractiveMode=false \
       -DarchetypeCatalog=local \
@@ -1104,14 +1104,14 @@ create_library() {
     fi
     cd ..
   else
-    ensure_archetype_installed "tomeex-lib-archetype"
+    ensure_archetype_installed "tomeex-lib"
     print_info "Creating library '$lib_name' (groupId: $group_id)..."
     cd projects || exit 1
     mvn archetype:generate \
       -DgroupId="$group_id" \
       -DartifactId="$lib_name" \
       -DarchetypeGroupId=dev.tomeex.archetypes \
-      -DarchetypeArtifactId=tomeex-lib-archetype \
+      -DarchetypeArtifactId=tomeex-lib \
       -DarchetypeVersion=1.0.0 \
       -DinteractiveMode=false \
       -DarchetypeCatalog=local \

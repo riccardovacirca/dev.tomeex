@@ -6,11 +6,11 @@
     <modelVersion>4.0.0</modelVersion>
     
     <groupId>dev.tomeex.archetypes</groupId>
-    <artifactId>tomeex-app-database-archetype</artifactId>
+    <artifactId>tomeex-app</artifactId>
     <version>1.0.0</version>
     <packaging>maven-archetype</packaging>
-    <name>TomEE Webapp Database Archetype</name>
-    <description>Maven archetype for creating TomEE webapps with database support</description>
+    <name>TomEE Webapp Archetype</name>
+    <description>Maven archetype for creating TomEE webapps with modern configuration</description>
     
     <properties>
         <maven.compiler.source>17</maven.compiler.source>

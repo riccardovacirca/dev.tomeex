@@ -6,7 +6,7 @@
     <modelVersion>4.0.0</modelVersion>
     
     <groupId>dev.tomeex.archetypes</groupId>
-    <artifactId>tomeex-lib-archetype</artifactId>
+    <artifactId>tomeex-lib</artifactId>
     <version>1.0.0</version>
     <packaging>maven-archetype</packaging>
 

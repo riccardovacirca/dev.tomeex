@@ -6,17 +6,12 @@
     <modelVersion>4.0.0</modelVersion>
     
     <groupId>dev.tomeex.archetypes</groupId>
-    <artifactId>tomeex-app-archetype</artifactId>
+    <artifactId>tomeex-lib-database</artifactId>
     <version>1.0.0</version>
     <packaging>maven-archetype</packaging>
-    <name>TomEE Webapp Archetype</name>
-    <description>Maven archetype for creating TomEE webapps with modern configuration</description>
     
-    <properties>
-        <maven.compiler.source>17</maven.compiler.source>
-        <maven.compiler.target>17</maven.compiler.target>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    </properties>
+    <name>TomEE JAR Database Library Archetype</name>
+    <description>Maven archetype for creating database-enabled JAR libraries</description>
     
     <build>
         <extensions>
@@ -26,10 +21,10 @@
                 <version>3.2.1</version>
             </extension>
         </extensions>
+        
         <pluginManagement>
             <plugins>
                 <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-archetype-plugin</artifactId>
                     <version>3.2.1</version>
                 </plugin>
