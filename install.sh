@@ -933,6 +933,55 @@ remove_sqlite_webapp_database() {
   print_info "SQLite cleanup complete for webapp '$app_name'"
 }
 
+# Initialize database with sample data from SQL file
+initialize_database_data() {
+  local app_name="$1"
+  local db_type="$2"
+  local group_id="$3"
+
+  local sql_file="projects/$group_id/database/init-data-${db_type}.sql"
+
+  # Check if SQL initialization file exists
+  if [ ! -f "$sql_file" ]; then
+    print_info "No initialization SQL file found for $db_type, skipping data load"
+    return 0
+  fi
+
+  print_info "Loading initial data from $sql_file..."
+
+  case "$db_type" in
+    postgres)
+      local container_name=$(grep POSTGRES_CONTAINER_NAME .env | cut -d= -f2)
+      export PGPASSWORD="secret"
+      if psql -h "$container_name" -p 5432 -U "$app_name" -d "$app_name" -f "$sql_file" > /dev/null 2>&1; then
+        print_info "PostgreSQL initial data loaded successfully"
+      else
+        print_warn "Failed to load initial data into PostgreSQL"
+      fi
+      unset PGPASSWORD
+      ;;
+
+    mariadb)
+      local container_name=$(grep MARIADB_CONTAINER_NAME .env | cut -d= -f2)
+      if mysql -h "$container_name" -P 3306 -u "$app_name" -psecret "$app_name" < "$sql_file" 2>/dev/null; then
+        print_info "MariaDB initial data loaded successfully"
+      else
+        print_warn "Failed to load initial data into MariaDB"
+      fi
+      ;;
+
+    sqlite)
+      local sqlite_data_dir=$(grep SQLITE_DATA_DIR .env | cut -d= -f2)
+      local sqlite_path="${sqlite_data_dir}/${app_name}.sqlite"
+      if sqlite3 "$sqlite_path" < "$sql_file" 2>/dev/null; then
+        print_info "SQLite initial data loaded successfully"
+      else
+        print_warn "Failed to load initial data into SQLite"
+      fi
+      ;;
+  esac
+}
+
 # Create new Maven webapp
 create_webapp() {
   local app_name="$1"
@@ -1011,6 +1060,7 @@ create_webapp() {
     fi
     create_webapp_database "$app_name" "$db_type" "$db_password"
     create_webapp_env_file "$group_id" "$app_name" "$db_type"
+    initialize_database_data "$app_name" "$db_type" "$group_id"
   fi
   print_info "Created: projects/$group_id/ with artifactId: $app_name"
   # Build and deploy the webapp

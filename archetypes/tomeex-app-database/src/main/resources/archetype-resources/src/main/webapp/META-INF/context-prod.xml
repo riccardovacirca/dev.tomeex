@@ -1,2 +1,37 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Context reloadable="false" />
+<Context reloadable="false">
+#if( $dbType == "postgres" )
+    <Resource name="jdbc/${artifactId}DB"
+              auth="Container"
+              type="javax.sql.DataSource"
+              maxTotal="50"
+              maxIdle="10"
+              maxWaitMillis="10000"
+              username="${artifactId}"
+              password="secret"
+              driverClassName="org.postgresql.Driver"
+              url="jdbc:postgresql://tomeex-postgres:5432/${artifactId}"/>
+#elseif( $dbType == "mariadb" )
+    <Resource name="jdbc/${artifactId}DB"
+              auth="Container"
+              type="javax.sql.DataSource"
+              maxTotal="50"
+              maxIdle="10"
+              maxWaitMillis="10000"
+              username="${artifactId}"
+              password="secret"
+              driverClassName="org.mariadb.jdbc.Driver"
+              url="jdbc:mariadb://tomeex-mariadb:3306/${artifactId}"/>
+#elseif( $dbType == "sqlite" )
+    <Resource name="jdbc/${artifactId}DB"
+              auth="Container"
+              type="javax.sql.DataSource"
+              maxTotal="50"
+              maxIdle="10"
+              maxWaitMillis="10000"
+              username=""
+              password=""
+              driverClassName="org.sqlite.JDBC"
+              url="jdbc:sqlite:/workspace/sqlite-data/${artifactId}.sqlite"/>
+#end
+</Context>

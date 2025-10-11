@@ -10,13 +10,13 @@
 
     <!-- Servlet Configuration -->
     <servlet>
-        <servlet-name>ItemServlet</servlet-name>
-        <servlet-class>${package}.servlet.ItemServlet</servlet-class>
+        <servlet-name>SystemLogServlet</servlet-name>
+        <servlet-class>${package}.servlet.SystemLogServlet</servlet-class>
     </servlet>
 
     <servlet-mapping>
-        <servlet-name>ItemServlet</servlet-name>
-        <url-pattern>/api/items/*</url-pattern>
+        <servlet-name>SystemLogServlet</servlet-name>
+        <url-pattern>/api/logs/*</url-pattern>
     </servlet-mapping>
     
     <!-- Database Resource Reference -->

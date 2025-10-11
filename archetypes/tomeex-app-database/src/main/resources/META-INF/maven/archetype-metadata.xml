@@ -46,5 +46,11 @@
                 <include>README.md</include>
             </includes>
         </fileSet>
+        <fileSet filtered="true" packaged="false">
+            <directory>database</directory>
+            <includes>
+                <include>**/*.sql</include>
+            </includes>
+        </fileSet>
     </fileSets>
 </archetype-descriptor>
