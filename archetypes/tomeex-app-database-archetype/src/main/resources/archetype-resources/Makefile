@@ -199,6 +199,59 @@ dbcli:
 		fi; \
 	fi
 
+# Add ContextView functionality to this webapp
+contextview:
+	@echo "Adding ContextView functionality to $(APP_NAME)..."
+	@cd /tmp && rm -rf contextview-addon && \
+	mvn archetype:generate -B \
+		-DarchetypeGroupId=dev.tomeex.archetypes \
+		-DarchetypeArtifactId=tomeex-addon-contextview \
+		-DarchetypeVersion=1.0.0 \
+		-DgroupId=${groupId} \
+		-DartifactId=contextview-addon \
+		-Dversion=1.0.0-SNAPSHOT \
+		-DtargetWebappGroupId=${groupId} \
+		-DtargetWebappArtifactId=$(APP_NAME) \
+		-DtargetWebappPath=/workspace/projects/${groupId} \
+		-DinteractiveMode=false
+	@echo "Copying ContextView files to webapp..."
+	@if [ -d "/tmp/contextview-addon/src/main/java" ]; then \
+		cp -r /tmp/contextview-addon/src/main/java/* src/main/java/; \
+		echo "  ✓ Java files copied"; \
+	fi
+	@if [ -d "/tmp/contextview-addon/src/main/webapp" ]; then \
+		cp -r /tmp/contextview-addon/src/main/webapp/* src/main/webapp/; \
+		echo "  ✓ Webapp files copied"; \
+	fi
+	@rm -rf /tmp/contextview-addon
+	@echo ""
+	@echo "✓ ContextView addon integrated successfully!"
+	@echo ""
+	@echo "Next steps:"
+	@echo "1. Add Jackson dependencies to pom.xml (see below)"
+	@echo "2. Update src/main/webapp/WEB-INF/web.xml with contextviews.path"
+	@echo "3. Run: make deploy"
+	@echo ""
+	@echo "Required dependencies for pom.xml:"
+	@echo ""
+	@echo "<dependency>"
+	@echo "    <groupId>com.fasterxml.jackson.core</groupId>"
+	@echo "    <artifactId>jackson-databind</artifactId>"
+	@echo "    <version>2.15.2</version>"
+	@echo "</dependency>"
+	@echo "<dependency>"
+	@echo "    <groupId>com.github.erosb</groupId>"
+	@echo "    <artifactId>everit-json-schema</artifactId>"
+	@echo "    <version>1.14.2</version>"
+	@echo "</dependency>"
+	@echo ""
+	@echo "web.xml configuration:"
+	@echo ""
+	@echo "<context-param>"
+	@echo "    <param-name>contextviews.path</param-name>"
+	@echo "    <param-value>\$${symbol_dollar}{catalina.base}/webapps/$(APP_NAME)/WEB-INF/contextviews</param-value>"
+	@echo "</context-param>"
+
 # Display help
 help:
 	@echo "$(APP_NAME) Webapp - Available targets:"
@@ -217,6 +270,7 @@ help:
 	@echo "  push          - Git add, commit and push (requires m=\"message\")"
 	@echo "  dbcli         - Connect to application database"
 	@echo "  dbcli load=<file.sql> - Execute SQL file in database"
+	@echo "  contextview   - Add ContextView functionality to this webapp"
 	@echo ""
 	@echo "  help          - Show this help message"
 	@echo ""
@@ -224,4 +278,4 @@ help:
 	@echo ""
 	@echo "For clean redeploy: make clean && make deploy"
 
-.PHONY: build release compile setup-database install deploy quick-deploy test test-verbose clean git-safe push dbcli help
+.PHONY: build release compile setup-database install deploy quick-deploy test test-verbose clean git-safe push dbcli contextview help
