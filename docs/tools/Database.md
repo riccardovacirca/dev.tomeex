@@ -1,715 +1,1177 @@
-# Database Class Documentation
+# Database
 
-**Package:** `dev.tomeex.tools`
-**Version:** 1.0.0
-**License:** Exclusive Free Beta License
+Java database abstraction layer providing simplified database operations with JNDI integration, transaction support, and cursor-based result iteration.
 
-## Overview
+## Classes
 
-The `Database` class provides a simplified abstraction layer for database operations in Java web applications. It integrates seamlessly with JNDI datasources, supports multiple database types (PostgreSQL, MariaDB, SQLite), and offers transaction management with memory-efficient result iteration.
+#### Core Classes
 
-## Key Features
+[Database](#database-1) - Main database interface for connection management and query execution  
+[Database.Record](#databaserecord) - Single database record as key-value map  
+[Database.Recordset](#databaserecordset) - Collection of database records  
+[Database.Cursor](#databasecursor) - Memory-efficient iterator for large result sets  
 
-- ✅ JNDI datasource integration
-- ✅ Transaction support (begin, commit, rollback)
-- ✅ Prepared statement parameter binding
-- ✅ Multiple result handling modes (Recordset, Cursor)
-- ✅ Auto-detection of last insert ID across database types
-- ✅ Zero external dependencies beyond JDBC
+## Methods
 
----
+#### Connection Management
 
-## Quick Start
+void [open](#open)() throws Exception  
+void [close](#close)()  
+boolean [connected](#connected)()  
 
-### Basic SELECT Query
+#### Transaction Control
 
+void [begin](#begin)() throws Exception  
+void [commit](#commit)() throws Exception  
+void [rollback](#rollback)() throws Exception  
+
+#### Query Execution
+
+int [query](#query)(String sql, Object... params) throws Exception  
+Recordset [select](#select)(String sql, Object... params) throws Exception  
+Cursor [cursor](#cursor)(String sql, Object... params) throws Exception  
+long [lastInsertId](#lastinsertid)() throws Exception  
+
+#### Cursor Operations
+
+boolean [Cursor.next](#cursornext)() throws Exception  
+Object [Cursor.get](#cursorget)(String column) throws Exception  
+Record [Cursor.getRow](#cursorgetrow)() throws Exception  
+void [Cursor.close](#cursorclose)()  
+
+# Class Documentation
+
+## Database
+
+`String source` - JNDI resource name for database connection
+`Connection connection` - Active database connection instance
+
+Main database interface providing connection management, transaction control, and query execution. Handles JNDI datasource integration and connection pooling automatically.
+
+**Constructor:**
 ```java
-Database db = new Database("jdbc/MyDB");
-try {
-    db.open();
-    Database.Recordset users = db.select("SELECT * FROM users WHERE status = ?", "active");
-
-    for (Database.Record user : users) {
-        String name = (String) user.get("name");
-        String email = (String) user.get("email");
-        System.out.println(name + " - " + email);
-    }
-} catch (Exception e) {
-    e.printStackTrace();
-} finally {
-    db.close();
-}
+public Database(String jndiName)
 ```
-
-### Basic INSERT/UPDATE/DELETE
-
-```java
-Database db = new Database("jdbc/MyDB");
-try {
-    db.open();
-
-    // INSERT
-    int rowsInserted = db.query(
-        "INSERT INTO users (name, email, status) VALUES (?, ?, ?)",
-        "John Doe", "john@example.com", "active"
-    );
-
-    long newId = db.lastInsertId();
-    System.out.println("New user ID: " + newId);
-
-    // UPDATE
-    int rowsUpdated = db.query(
-        "UPDATE users SET status = ? WHERE id = ?",
-        "inactive", newId
-    );
-
-    // DELETE
-    int rowsDeleted = db.query("DELETE FROM users WHERE id = ?", newId);
-
-} catch (Exception e) {
-    e.printStackTrace();
-} finally {
-    db.close();
-}
-```
-
----
-
-## Constructor
-
-### `Database(String jndiName)`
-
-Creates a new Database instance configured to use the specified JNDI resource.
 
 **Parameters:**
-- `jndiName` - The JNDI resource name (e.g., `"jdbc/MyDB"`)
+- `jndiName` - JNDI resource name for database connection (e.g., "jdbc/MyDB")
 
-**⚠️ IMPORTANT:** Do **NOT** include the `"java:comp/env/"` prefix. The class adds this automatically.
+**Key Features:**
+- **JNDI Integration** - Seamless integration with application server connection pools
+- **Transaction Support** - Complete transaction lifecycle management with rollback capabilities
+- **Type-Safe Results** - Structured data types (Record, Recordset) for consistent data handling
+- **Cursor Operations** - Memory-efficient result iteration for large datasets
+- **Connection Pooling** - Automatic connection pool management through JNDI
 
-**Correct:**
+**Dependencies:**
+- Java 17+
+- JNDI-compatible application server (TomEE, etc.)
+- Database driver (PostgreSQL, MySQL, SQLite, etc.)
+
+**JNDI Configuration:**
+
+The JNDI resource must be configured in `META-INF/context.xml`. The Database class automatically prepends `java:comp/env/` to the JNDI name during lookup, so you only need to provide the resource name (e.g., "jdbc/MyDB").
+
+PostgreSQL Configuration:
+```xml
+<Context>
+  <Resource name="jdbc/MyDB"
+            auth="Container"
+            type="javax.sql.DataSource"
+            maxTotal="20"
+            maxIdle="5"
+            maxWaitMillis="10000"
+            username="dbuser"
+            password="dbpass"
+            driverClassName="org.postgresql.Driver"
+            url="jdbc:postgresql://localhost:5432/mydb"/>
+</Context>
+```
+
+MariaDB/MySQL Configuration:
+```xml
+<Context>
+  <Resource name="jdbc/MyDB"
+            auth="Container"
+            type="javax.sql.DataSource"
+            maxTotal="20"
+            maxIdle="5"
+            maxWaitMillis="10000"
+            username="dbuser"
+            password="dbpass"
+            driverClassName="org.mariadb.jdbc.Driver"
+            url="jdbc:mariadb://localhost:3306/mydb"/>
+</Context>
+```
+
+SQLite Configuration:
+```xml
+<Context>
+  <Resource name="jdbc/MyDB"
+            auth="Container"
+            type="javax.sql.DataSource"
+            maxTotal="20"
+            maxIdle="5"
+            maxWaitMillis="10000"
+            username=""
+            password=""
+            driverClassName="org.sqlite.JDBC"
+            url="jdbc:sqlite:/path/to/database.sqlite"/>
+</Context>
+```
+
+**JNDI Parameters:**
+- `name` - JNDI resource name (must match constructor parameter)
+- `auth` - Authentication mode (Container for connection pooling)
+- `type` - DataSource type (always javax.sql.DataSource)
+- `maxTotal` - Maximum number of connections in pool
+- `maxIdle` - Maximum number of idle connections
+- `maxWaitMillis` - Maximum wait time for connection (milliseconds)
+- `username` - Database username
+- `password` - Database password
+- `driverClassName` - JDBC driver class name
+- `url` - JDBC connection URL
+
+**Example:**
 ```java
+import dev.tomeex.tools.Database;
+
+// Create Database instance with JNDI name
 Database db = new Database("jdbc/MyDB");
+
+// The database is now ready to be opened
+// JNDI resource "jdbc/MyDB" must be configured in META-INF/context.xml
 ```
 
-**Incorrect:**
+[↑ Classes](#classes)
+
+## Database.Record
+
 ```java
-Database db = new Database("java:comp/env/jdbc/MyDB");  // ❌ WRONG
+public static class Record extends HashMap<String, Object>
 ```
 
----
+Represents a single database record as a key-value map. Provides type-safe access to database column values with automatic type conversion.
 
-## Core Methods
-
-### Connection Management
-
-#### `void open() throws Exception`
-
-Opens a database connection using the configured JNDI datasource.
-
-**Throws:** `Exception` if connection fails
+**Inheritance:**
+- Inherits all HashMap methods (get, put, containsKey, etc.)
+- Implements Map&lt;String, Object&gt; interface
 
 **Usage:**
 ```java
-db.open();
-```
-
-#### `void close()`
-
-Closes the database connection and releases resources. Safe to call multiple times.
-
-**Usage:**
-```java
-db.close();  // Always call in finally block
-```
-
-#### `boolean connected()`
-
-Checks if the database connection is active and not closed.
-
-**Returns:** `true` if connected, `false` otherwise
-
-**Usage:**
-```java
-if (db.connected()) {
-    // Connection is active
-}
-```
-
----
-
-### Query Execution
-
-#### `int query(String sql, Object... params) throws Exception`
-
-Executes modification queries (INSERT, UPDATE, DELETE).
-
-**Parameters:**
-- `sql` - SQL statement with `?` placeholders
-- `params` - Values to bind to placeholders (varargs)
-
-**Returns:** Number of affected rows
-
-**Throws:** `Exception` if query execution fails
-
-**Usage:**
-```java
-int affected = db.query("UPDATE users SET active = ? WHERE id = ?", true, 123);
-```
-
-#### `Recordset select(String sql, Object... params) throws Exception`
-
-Executes a SELECT query and returns all results in memory.
-
-**Parameters:**
-- `sql` - SQL SELECT statement with `?` placeholders
-- `params` - Values to bind to placeholders (varargs)
-
-**Returns:** `Recordset` containing all matching records
-
-**Throws:** `Exception` if query execution fails
-
-**Usage:**
-```java
-Recordset results = db.select("SELECT * FROM users WHERE age > ?", 18);
-```
-
-**⚠️ Memory Note:** Loads all results into memory. For large result sets, use `cursor()` instead.
-
-#### `Cursor cursor(String sql, Object... params) throws Exception`
-
-Creates a memory-efficient cursor for iterating large result sets.
-
-**Parameters:**
-- `sql` - SQL SELECT statement with `?` placeholders
-- `params` - Values to bind to placeholders (varargs)
-
-**Returns:** `Cursor` for result set navigation
-
-**Throws:** `Exception` if cursor creation fails
-
-**Usage:**
-```java
-Cursor cursor = db.cursor("SELECT * FROM large_table");
-try {
-    while (cursor.next()) {
-        String value = (String) cursor.get("column_name");
-        // Process row
-    }
-} finally {
-    cursor.close();
-}
-```
-
-#### `long lastInsertId() throws Exception`
-
-Returns the auto-generated ID from the last INSERT operation.
-
-**Returns:** Last insert ID as `long`
-
-**Throws:** `Exception` if no ID available or database type unsupported
-
-**Supported Databases:**
-- PostgreSQL: Uses `LASTVAL()`
-- MariaDB/MySQL: Uses `LAST_INSERT_ID()`
-- SQLite: Uses `last_insert_rowid()`
-
-**Usage:**
-```java
-db.query("INSERT INTO users (name) VALUES (?)", "Alice");
-long userId = db.lastInsertId();
-```
-
----
-
-### Transaction Management
-
-#### `void begin() throws Exception`
-
-Starts a database transaction by disabling auto-commit.
-
-**Throws:** `Exception` if connection not available
-
-**Usage:**
-```java
-db.begin();
-```
-
-#### `void commit() throws Exception`
-
-Commits the current transaction and re-enables auto-commit.
-
-**Throws:** `Exception` if connection not available or commit fails
-
-**Usage:**
-```java
-db.commit();
-```
-
-#### `void rollback() throws Exception`
-
-Rolls back the current transaction and re-enables auto-commit.
-
-**Throws:** `Exception` if connection not available or rollback fails
-
-**Usage:**
-```java
-db.rollback();
-```
-
-**Transaction Example:**
-```java
-Database db = new Database("jdbc/MyDB");
-try {
-    db.open();
-    db.begin();
-
-    db.query("INSERT INTO accounts (name, balance) VALUES (?, ?)", "Alice", 1000);
-    db.query("INSERT INTO transactions (description) VALUES (?)", "Initial deposit");
-
-    db.commit();
-} catch (Exception e) {
-    db.rollback();
-    e.printStackTrace();
-} finally {
-    db.close();
-}
-```
-
----
-
-## Data Types
-
-### Record
-
-A single database row represented as a `HashMap<String, Object>`.
-
-**Access Pattern:**
-```java
-Database.Record record = recordset.get(0);
+Record record = ...;
 String name = (String) record.get("name");
 Integer age = (Integer) record.get("age");
 ```
 
-**Available Methods:** All `HashMap` methods (`get()`, `put()`, `containsKey()`, etc.)
-
-### Recordset
-
-A collection of `Record` objects, extends `ArrayList<Record>`.
-
-**Access Pattern:**
+**Example:**
 ```java
-Database.Recordset results = db.select("SELECT * FROM users");
+import dev.tomeex.tools.Database;
 
-// Iterate
-for (Database.Record record : results) {
-    System.out.println(record.get("name"));
+Database db = new Database("jdbc/MyDB");
+db.open();
+
+// Get a single record
+Database.Recordset results = db.select("SELECT * FROM users WHERE id = ?", 1);
+if (!results.isEmpty()) {
+    Database.Record user = results.get(0);
+
+    // Access record fields
+    Long id = (Long) user.get("id");
+    String name = (String) user.get("name");
+    String email = (String) user.get("email");
+    Boolean active = (Boolean) user.get("active");
+
+    System.out.println("User: " + name + " (" + email + ")");
+    System.out.println("Active: " + active);
+
+    // Check if field exists
+    if (user.containsKey("created_at")) {
+        System.out.println("Created: " + user.get("created_at"));
+    }
 }
 
-// Index access
-Database.Record firstRecord = results.get(0);
-
-// Size
-int count = results.size();
+db.close();
 ```
 
-**Available Methods:** All `ArrayList` methods (`size()`, `isEmpty()`, `get()`, etc.)
+[↑ Classes](#classes)
 
-### Cursor
+## Database.Recordset
 
-Memory-efficient iterator for large result sets.
+```java
+public static class Recordset extends ArrayList<Record>
+```
+
+Collection of database records providing list-like access to query results. Supports standard list operations and iteration.
+
+**Inheritance:**
+- Inherits all ArrayList methods (add, remove, size, get, etc.)
+- Implements List&lt;Record&gt; interface
+
+**Usage:**
+```java
+Recordset users = db.select("SELECT * FROM users");
+for (Record user : users) {
+    System.out.println(user.get("name"));
+}
+```
+
+**Example:**
+```java
+import dev.tomeex.tools.Database;
+
+Database db = new Database("jdbc/MyDB");
+db.open();
+
+// Get multiple records
+Database.Recordset users = db.select("SELECT * FROM users WHERE active = ?", true);
+
+// Check if results exist
+if (users.isEmpty()) {
+    System.out.println("No active users found");
+} else {
+    System.out.println("Found " + users.size() + " active users");
+
+    // Iterate through all records
+    for (Database.Record user : users) {
+        String name = (String) user.get("name");
+        String email = (String) user.get("email");
+        System.out.println("- " + name + " <" + email + ">");
+    }
+
+    // Access specific record by index
+    Database.Record firstUser = users.get(0);
+    System.out.println("First user: " + firstUser.get("name"));
+}
+
+db.close();
+```
+
+[↑ Classes](#classes)
+
+## Database.Cursor
+
+`ResultSet resultSet` - JDBC result set for row iteration
+`PreparedStatement statement` - Prepared statement for query execution
+
+Memory-efficient iterator for large result sets. Provides row-by-row access to query results without loading entire dataset into memory.
+
+**Resource Management:**
+- Must be closed after use to release database resources
+- Implements try-with-resources pattern compatibility
 
 **Methods:**
-- `boolean next()` - Move to next row, returns `false` when end reached
-- `Object get(String column)` - Get column value from current row
-- `Record getRow()` - Get entire current row as Record
-- `void close()` - Release resources (always call in finally block)
+- `next()` - Moves to next row
+- `get(String column)` - Gets specific column value
+- `getRow()` - Gets entire row as Record
+- `close()` - Closes cursor and releases resources
 
-**Pattern:**
+**Example:**
 ```java
-Cursor cursor = db.cursor("SELECT * FROM huge_table");
+import dev.tomeex.tools.Database;
+
+Database db = new Database("jdbc/MyDB");
+db.open();
+
+// Create cursor for large result set
+Database.Cursor cursor = db.cursor(
+    "SELECT id, name, email FROM users WHERE active = ?",
+    true
+);
+
 try {
+    int count = 0;
+
+    // Iterate through results efficiently
     while (cursor.next()) {
-        Database.Record row = cursor.getRow();
-        // Process row
+        Long id = (Long) cursor.get("id");
+        String name = (String) cursor.get("name");
+        String email = (String) cursor.get("email");
+
+        System.out.println(id + ": " + name + " <" + email + ">");
+        count++;
     }
+
+    System.out.println("Processed " + count + " records");
+
 } finally {
+    // Always close cursor to release resources
     cursor.close();
 }
+
+db.close();
 ```
 
----
+[↑ Classes](#classes)
 
-## JNDI Configuration
+# Method Documentation
 
-### TomEE / Tomcat Context Configuration
-
-Create or edit `src/main/webapp/META-INF/context.xml`:
-
-#### PostgreSQL
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<Context>
-    <Resource name="jdbc/MyDB"
-              auth="Container"
-              type="javax.sql.DataSource"
-              maxTotal="20"
-              maxIdle="5"
-              maxWaitMillis="10000"
-              username="dbuser"
-              password="dbpassword"
-              driverClassName="org.postgresql.Driver"
-              url="jdbc:postgresql://localhost:5432/mydatabase"/>
-</Context>
-```
-
-#### MariaDB / MySQL
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<Context>
-    <Resource name="jdbc/MyDB"
-              auth="Container"
-              type="javax.sql.DataSource"
-              maxTotal="20"
-              maxIdle="5"
-              maxWaitMillis="10000"
-              username="dbuser"
-              password="dbpassword"
-              driverClassName="org.mariadb.jdbc.Driver"
-              url="jdbc:mariadb://localhost:3306/mydatabase"/>
-</Context>
-```
-
-#### SQLite
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<Context>
-    <Resource name="jdbc/MyDB"
-              auth="Container"
-              type="javax.sql.DataSource"
-              maxTotal="20"
-              maxIdle="5"
-              maxWaitMillis="10000"
-              username=""
-              password=""
-              driverClassName="org.sqlite.JDBC"
-              url="jdbc:sqlite:/path/to/database.sqlite"/>
-</Context>
-```
-
-### Web Application Resource Reference
-
-Add to `src/main/webapp/WEB-INF/web.xml`:
-
-```xml
-<resource-ref>
-    <description>Database connection</description>
-    <res-ref-name>jdbc/MyDB</res-ref-name>
-    <res-type>javax.sql.DataSource</res-type>
-    <res-auth>Container</res-auth>
-</resource-ref>
-```
-
-### Required JDBC Drivers
-
-Add appropriate JDBC driver to your `pom.xml`:
-
-**PostgreSQL:**
-```xml
-<dependency>
-    <groupId>org.postgresql</groupId>
-    <artifactId>postgresql</artifactId>
-    <version>42.7.3</version>
-</dependency>
-```
-
-**MariaDB:**
-```xml
-<dependency>
-    <groupId>org.mariadb.jdbc</groupId>
-    <artifactId>mariadb-java-client</artifactId>
-    <version>3.3.3</version>
-</dependency>
-```
-
-**SQLite:**
-```xml
-<dependency>
-    <groupId>org.xerial</groupId>
-    <artifactId>sqlite-jdbc</artifactId>
-    <version>3.45.1.0</version>
-</dependency>
-```
-
----
-
-## Servlet Integration Pattern
-
-### Recommended Pattern (Local Variable)
+## open
 
 ```java
-@WebServlet("/api/users")
-public class UserServlet extends HttpServlet {
-
-    @Override
-    protected void doGet(HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException {
-
-        response.setContentType("application/json");
-        Database db = null;
-
-        try {
-            db = new Database("jdbc/MyDB");
-            db.open();
-
-            Database.Recordset users = db.select("SELECT * FROM users");
-
-            // Convert to JSON and write response
-            ObjectMapper mapper = new ObjectMapper();
-            mapper.writeValue(response.getWriter(), users);
-
-        } catch (Exception e) {
-            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            response.getWriter().write("{\"error\": \"" + e.getMessage() + "\"}");
-        } finally {
-            if (db != null) {
-                db.close();
-            }
-        }
-    }
-}
+public void open() throws Exception
 ```
 
-**⚠️ Important:** Always instantiate `Database` as a local variable in the method, not as a servlet instance field. This ensures proper connection lifecycle management and thread safety.
+**Description:**
+Opens database connection using JNDI datasource lookup. Establishes connection through application server's connection pool.
 
----
+**Parameters:**
+- None
 
-## Best Practices
+**Return value:**
+- `void` - No return value
 
-### ✅ DO
+**Exceptions:**
+- `Exception` - JNDI lookup failure, connection establishment failure, or datasource configuration error
 
-- **Always call `close()`** in a `finally` block
-- **Use prepared statement parameters** (`?` placeholders) to prevent SQL injection
-- **Instantiate Database as local variable** in servlets/methods
-- **Use `cursor()`** for large result sets to save memory
-- **Use transactions** for multi-step operations that must succeed or fail together
-- **Handle exceptions** appropriately and log errors
+**Prerequisites:**
+- JNDI resource must be properly configured in application server
+- Database driver must be available in classpath
 
-### ❌ DON'T
+**JNDI Lookup Details:**
+The method automatically prepends `java:comp/env/` to the JNDI resource name provided in the constructor. For example, if you create `new Database("jdbc/MyDB")`, the actual JNDI lookup will be performed on `java:comp/env/jdbc/MyDB`
 
-- **Don't store Database instance as servlet field** - creates connection leaks
-- **Don't concatenate user input into SQL strings** - SQL injection vulnerability
-- **Don't forget to call `close()`** - causes connection pool exhaustion
-- **Don't load huge result sets with `select()`** - use `cursor()` instead
-- **Don't include "java:comp/env/" in constructor** - added automatically
-
----
-
-## Common Patterns
-
-### Pattern: Single Record Lookup
-
+**Example:**
 ```java
+import dev.tomeex.tools.Database;
+
 Database db = new Database("jdbc/MyDB");
-try {
-    db.open();
-    Database.Recordset results = db.select(
-        "SELECT * FROM users WHERE id = ?", userId
-    );
 
-    if (!results.isEmpty()) {
-        Database.Record user = results.get(0);
-        String name = (String) user.get("name");
-        return name;
-    }
-    return null;
+try {
+    // Open connection using JNDI datasource
+    db.open();
+
+    System.out.println("Database connection opened successfully");
+
+    // Perform database operations...
+
+} catch (Exception e) {
+    System.err.println("Failed to open database: " + e.getMessage());
+    e.printStackTrace();
 } finally {
     db.close();
 }
 ```
 
-### Pattern: Batch Insert with Transaction
+[↑ Methods](#methods)
+
+## close
 
 ```java
+public void close()
+```
+
+**Description:**
+Closes database connection and returns it to connection pool. Safe to call multiple times.
+
+**Parameters:**
+- None
+
+**Return value:**
+- `void` - No return value
+
+**Resource Management:**
+- Always call in finally block or use try-with-resources
+- Connection returned to pool, not destroyed
+
+**Example:**
+```java
+import dev.tomeex.tools.Database;
+
 Database db = new Database("jdbc/MyDB");
+
+try {
+    db.open();
+
+    // Perform database operations
+    Database.Recordset users = db.select("SELECT * FROM users");
+    System.out.println("Found " + users.size() + " users");
+
+} catch (Exception e) {
+    e.printStackTrace();
+} finally {
+    // Always close connection in finally block
+    db.close();
+    System.out.println("Database connection closed");
+}
+
+// Safe to call close() multiple times
+db.close(); // No error
+```
+
+[↑ Methods](#methods)
+
+## connected
+
+```java
+public boolean connected()
+```
+
+**Description:**
+Checks if database connection is active and valid. Performs actual connection validation.
+
+**Parameters:**
+- None
+
+**Return value:**
+- `true` - Connection is active and valid
+- `false` - No connection or connection is closed/invalid
+
+**Example:**
+```java
+import dev.tomeex.tools.Database;
+
+Database db = new Database("jdbc/MyDB");
+
+// Check before opening
+if (!db.connected()) {
+    System.out.println("Not connected yet");
+}
+
+try {
+    db.open();
+
+    // Verify connection is active
+    if (db.connected()) {
+        System.out.println("Connection is active");
+
+        // Perform database operations
+        Database.Recordset users = db.select("SELECT COUNT(*) as total FROM users");
+        System.out.println("Total users: " + users.get(0).get("total"));
+    }
+
+} catch (Exception e) {
+    e.printStackTrace();
+} finally {
+    db.close();
+}
+
+// Check after closing
+if (!db.connected()) {
+    System.out.println("Connection closed");
+}
+```
+
+[↑ Methods](#methods)
+
+## begin
+
+```java
+public void begin() throws Exception
+```
+
+**Description:**
+Starts database transaction by disabling auto-commit mode. All subsequent operations will be part of the transaction until commit or rollback.
+
+**Parameters:**
+- None
+
+**Return value:**
+- `void` - No return value
+
+**Exceptions:**
+- `Exception` - Connection not available or transaction start failure
+
+**Transaction State:**
+- Sets auto-commit to false
+- Must be followed by commit() or rollback()
+
+**Example:**
+```java
+import dev.tomeex.tools.Database;
+
+Database db = new Database("jdbc/MyDB");
+
+try {
+    db.open();
+
+    // Start transaction
+    db.begin();
+    System.out.println("Transaction started");
+
+    // All subsequent operations are part of this transaction
+    db.query("INSERT INTO users (name, email) VALUES (?, ?)",
+             "John Doe", "john@example.com");
+
+    db.query("INSERT INTO users (name, email) VALUES (?, ?)",
+             "Jane Doe", "jane@example.com");
+
+    // Transaction must be committed or rolled back
+    db.commit();
+
+} catch (Exception e) {
+    db.rollback();
+    e.printStackTrace();
+} finally {
+    db.close();
+}
+```
+
+[↑ Methods](#methods)
+
+## commit
+
+```java
+public void commit() throws Exception
+```
+
+**Description:**
+Commits current transaction and restores auto-commit mode. Makes all transaction changes permanent.
+
+**Parameters:**
+- None
+
+**Return value:**
+- `void` - No return value
+
+**Exceptions:**
+- `Exception` - Connection not available or commit failure
+
+**Transaction State:**
+- Commits all pending changes
+- Restores auto-commit to true
+
+**Example:**
+```java
+import dev.tomeex.tools.Database;
+
+Database db = new Database("jdbc/MyDB");
+
 try {
     db.open();
     db.begin();
 
-    for (User user : userList) {
-        db.query(
-            "INSERT INTO users (name, email) VALUES (?, ?)",
-            user.getName(), user.getEmail()
+    // Insert new user
+    db.query("INSERT INTO users (name, email, active) VALUES (?, ?, ?)",
+             "Alice Smith", "alice@example.com", true);
+
+    long userId = db.lastInsertId();
+
+    // Update user profile
+    db.query("INSERT INTO profiles (user_id, bio) VALUES (?, ?)",
+             userId, "Software Developer");
+
+    // Commit all changes permanently
+    db.commit();
+    System.out.println("Transaction committed successfully");
+    System.out.println("Created user ID: " + userId);
+
+} catch (Exception e) {
+    System.err.println("Transaction failed, rolling back...");
+    db.rollback();
+    e.printStackTrace();
+} finally {
+    db.close();
+}
+```
+
+[↑ Methods](#methods)
+
+## rollback
+
+```java
+public void rollback() throws Exception
+```
+
+**Description:**
+Rolls back current transaction and restores auto-commit mode. Discards all transaction changes.
+
+**Parameters:**
+- None
+
+**Return value:**
+- `void` - No return value
+
+**Exceptions:**
+- `Exception` - Connection not available or rollback failure
+
+**Transaction State:**
+- Discards all pending changes
+- Restores auto-commit to true
+
+**Example:**
+```java
+import dev.tomeex.tools.Database;
+
+Database db = new Database("jdbc/MyDB");
+
+try {
+    db.open();
+    db.begin();
+
+    // Insert user
+    db.query("INSERT INTO users (name, email) VALUES (?, ?)",
+             "Bob Johnson", "bob@example.com");
+
+    long userId = db.lastInsertId();
+    System.out.println("Inserted user ID: " + userId);
+
+    // Simulate an error condition
+    if (userId > 0) {
+        throw new Exception("Simulated error - rolling back transaction");
+    }
+
+    db.commit();
+
+} catch (Exception e) {
+    System.err.println("Error occurred: " + e.getMessage());
+
+    // Rollback discards all changes made in this transaction
+    db.rollback();
+    System.out.println("Transaction rolled back - no changes saved");
+
+} finally {
+    db.close();
+}
+```
+
+[↑ Methods](#methods)
+
+## query
+
+```java
+public int query(String sql, Object... params) throws Exception
+```
+
+**Description:**
+Executes modification queries (INSERT, UPDATE, DELETE) with parameter binding. Uses prepared statements to prevent SQL injection.
+
+**Parameters:**
+- `sql` - SQL statement with ? placeholders for parameters
+- `params` - Variable arguments for parameter binding (in order)
+
+**Return value:**
+- `int` - Number of affected rows
+
+**Exceptions:**
+- `Exception` - Connection not available, invalid SQL, or execution failure
+
+**Security:**
+- Uses prepared statements for parameter binding
+- Prevents SQL injection attacks
+
+**Example:**
+```java
+import dev.tomeex.tools.Database;
+
+Database db = new Database("jdbc/MyDB");
+
+try {
+    db.open();
+
+    // INSERT example
+    int insertedRows = db.query(
+        "INSERT INTO users (name, email, active) VALUES (?, ?, ?)",
+        "Charlie Brown", "charlie@example.com", true
+    );
+    System.out.println("Inserted " + insertedRows + " row(s)");
+
+    // UPDATE example
+    int updatedRows = db.query(
+        "UPDATE users SET active = ? WHERE email = ?",
+        false, "charlie@example.com"
+    );
+    System.out.println("Updated " + updatedRows + " row(s)");
+
+    // DELETE example
+    int deletedRows = db.query(
+        "DELETE FROM users WHERE email = ?",
+        "charlie@example.com"
+    );
+    System.out.println("Deleted " + deletedRows + " row(s)");
+
+} catch (Exception e) {
+    e.printStackTrace();
+} finally {
+    db.close();
+}
+```
+
+[↑ Methods](#methods)
+
+## select
+
+```java
+public Recordset select(String sql, Object... params) throws Exception
+```
+
+**Description:**
+Executes SELECT queries and returns all results as Recordset. Loads complete result set into memory.
+
+**Parameters:**
+- `sql` - SQL SELECT statement with ? placeholders for parameters
+- `params` - Variable arguments for parameter binding (in order)
+
+**Return value:**
+- `Recordset` - Collection of records containing all query results
+
+**Exceptions:**
+- `Exception` - Connection not available, invalid SQL, or execution failure
+
+**Memory Usage:**
+- Loads entire result set into memory
+- Use cursor() for large result sets
+
+**Example:**
+```java
+import dev.tomeex.tools.Database;
+
+Database db = new Database("jdbc/MyDB");
+
+try {
+    db.open();
+
+    // Simple SELECT
+    Database.Recordset allUsers = db.select("SELECT * FROM users");
+    System.out.println("Total users: " + allUsers.size());
+
+    // SELECT with parameters
+    Database.Recordset activeUsers = db.select(
+        "SELECT id, name, email FROM users WHERE active = ? ORDER BY name",
+        true
+    );
+
+    System.out.println("\nActive users:");
+    for (Database.Record user : activeUsers) {
+        System.out.printf("ID: %d, Name: %s, Email: %s%n",
+            user.get("id"),
+            user.get("name"),
+            user.get("email")
         );
     }
 
-    db.commit();
+    // SELECT with multiple parameters
+    Database.Recordset filteredUsers = db.select(
+        "SELECT * FROM users WHERE active = ? AND created_at > ?",
+        true, "2023-01-01"
+    );
+    System.out.println("\nRecent active users: " + filteredUsers.size());
+
 } catch (Exception e) {
-    db.rollback();
-    throw e;
+    e.printStackTrace();
 } finally {
     db.close();
 }
 ```
 
-### Pattern: Large Result Set Processing
+[↑ Methods](#methods)
+
+## cursor
 
 ```java
-Database db = new Database("jdbc/MyDB");
-Cursor cursor = null;
-try {
-    db.open();
-    cursor = db.cursor("SELECT * FROM large_table");
-
-    while (cursor.next()) {
-        String value = (String) cursor.get("column_name");
-        // Process each row without loading everything into memory
-        processRow(value);
-    }
-} finally {
-    if (cursor != null) {
-        cursor.close();
-    }
-    db.close();
-}
+public Cursor cursor(String sql, Object... params) throws Exception
 ```
 
-### Pattern: JSON API Response
+**Description:**
+Creates cursor for memory-efficient iteration over large result sets. Returns iterator that fetches rows on demand.
 
+**Parameters:**
+- `sql` - SQL SELECT statement with ? placeholders for parameters
+- `params` - Variable arguments for parameter binding (in order)
+
+**Return value:**
+- `Cursor` - Iterator for result set navigation
+
+**Exceptions:**
+- `Exception` - Connection not available, invalid SQL, or execution failure
+
+**Resource Management:**
+- Must call cursor.close() after use
+- Use try-with-resources pattern
+
+**Example:**
 ```java
+import dev.tomeex.tools.Database;
+
 Database db = new Database("jdbc/MyDB");
+
 try {
     db.open();
-    Database.Recordset logs = db.select(
-        "SELECT * FROM system_logs ORDER BY created_at DESC LIMIT ?", 100
+
+    // Create cursor for large result set
+    Database.Cursor cursor = db.cursor(
+        "SELECT id, name, email, created_at FROM users WHERE active = ? ORDER BY id",
+        true
     );
 
-    ObjectMapper mapper = new ObjectMapper();
-    String json = mapper.writeValueAsString(logs);
+    try {
+        int processedCount = 0;
 
-    return json;
+        // Process records one at a time
+        while (cursor.next()) {
+            Long id = (Long) cursor.get("id");
+            String name = (String) cursor.get("name");
+
+            // Process record
+            System.out.println("Processing user " + id + ": " + name);
+
+            processedCount++;
+
+            // Progress indicator every 100 records
+            if (processedCount % 100 == 0) {
+                System.out.println("Processed " + processedCount + " records...");
+            }
+        }
+
+        System.out.println("Total processed: " + processedCount + " records");
+
+    } finally {
+        // Always close cursor
+        cursor.close();
+    }
+
+} catch (Exception e) {
+    e.printStackTrace();
 } finally {
     db.close();
 }
 ```
 
----
+[↑ Methods](#methods)
 
-## Troubleshooting
+## lastInsertId
 
-### Connection Issues
-
-**Error:** `Name [java:comp/env/jdbc/MyDB] is not bound in this Context`
-
-**Causes:**
-1. Context.xml resource not configured
-2. JNDI name mismatch between constructor and context.xml
-3. Missing web.xml resource-ref declaration
-4. Double "java:comp/env/" prefix (common mistake)
-
-**Solution:**
-- Verify context.xml has `<Resource name="jdbc/MyDB">`
-- Verify constructor uses `new Database("jdbc/MyDB")` (no prefix)
-- Verify web.xml has matching `<res-ref-name>jdbc/MyDB</res-ref-name>`
-
-### SQL Errors
-
-**Error:** `user lacks privilege or object not found: TABLE_NAME`
-
-**Causes:**
-1. Table doesn't exist
-2. Table name case sensitivity (PostgreSQL specific)
-3. Wrong database/schema
-4. Insufficient permissions
-
-**Solution:**
-- For PostgreSQL: Use lowercase table names or quote them: `"TableName"`
-- Verify database connection is pointing to correct database
-- Check user has SELECT/INSERT/UPDATE/DELETE permissions
-
-### Memory Issues
-
-**Error:** `OutOfMemoryError` with large queries
-
-**Cause:** Using `select()` on huge result sets loads everything into memory
-
-**Solution:** Use `cursor()` instead:
 ```java
-// Instead of:
-Recordset huge = db.select("SELECT * FROM million_rows");  // ❌ OOM
-
-// Use:
-Cursor cursor = db.cursor("SELECT * FROM million_rows");  // ✅ Memory efficient
+public long lastInsertId() throws Exception
 ```
 
-### Transaction Issues
+**Description:**
+Returns auto-generated key from last INSERT operation. Supports multiple database types with appropriate SQL.
 
-**Error:** Transaction not rolled back after error
+**Parameters:**
+- None
 
-**Cause:** Exception thrown before `rollback()` call
+**Return value:**
+- `long` - Auto-generated primary key value from last insert
 
-**Solution:** Always call rollback in catch block:
+**Exceptions:**
+- `Exception` - Connection not available, unsupported database, or no recent insert
+
+**Database Support:**
+- PostgreSQL: LASTVAL()
+- MySQL/MariaDB: LAST_INSERT_ID()
+- SQLite: last_insert_rowid()
+
+**Example:**
 ```java
+import dev.tomeex.tools.Database;
+
+Database db = new Database("jdbc/MyDB");
+
 try {
-    db.begin();
-    // ... operations
-    db.commit();
+    db.open();
+
+    // Insert a new user
+    int rows = db.query(
+        "INSERT INTO users (name, email, active) VALUES (?, ?, ?)",
+        "David Wilson", "david@example.com", true
+    );
+
+    if (rows > 0) {
+        // Get the auto-generated ID
+        long newUserId = db.lastInsertId();
+        System.out.println("New user created with ID: " + newUserId);
+
+        // Use the ID for related operations
+        db.query(
+            "INSERT INTO profiles (user_id, bio, avatar) VALUES (?, ?, ?)",
+            newUserId, "New user profile", "default.png"
+        );
+
+        System.out.println("Profile created for user ID: " + newUserId);
+    }
+
 } catch (Exception e) {
-    db.rollback();  // ✅ Always rollback on error
-    throw e;
+    e.printStackTrace();
+} finally {
+    db.close();
 }
 ```
 
----
+[↑ Methods](#methods)
 
-## Performance Tips
+## Cursor.next
 
-1. **Connection Pooling:** Configure `maxTotal` and `maxIdle` in context.xml appropriately
-2. **Use Prepared Statements:** Always use `?` placeholders (the class does this automatically)
-3. **Batch Operations:** Use transactions for multiple inserts/updates
-4. **Result Set Size:** Use LIMIT clauses and cursor() for large datasets
-5. **Index Your Tables:** Ensure frequently queried columns are indexed
-6. **Close Resources:** Always close connections and cursors to return them to pool
-
----
-
-## Thread Safety
-
-The `Database` class is **NOT thread-safe**. Each thread should create its own instance.
-
-**Safe Pattern (Servlet):**
 ```java
-protected void doGet(HttpServletRequest req, HttpServletResponse resp) {
-    Database db = new Database("jdbc/MyDB");  // ✅ Thread-local
-    // ... use db
-}
+public boolean next() throws Exception
 ```
 
-**Unsafe Pattern:**
+**Description:**
+Moves cursor to next row in result set. Must be called before accessing row data.
+
+**Parameters:**
+- None
+
+**Return value:**
+- `true` - Successfully moved to next row, data available
+- `false` - No more rows available, end of result set reached
+
+**Exceptions:**
+- `Exception` - Cursor operation failure or connection error
+
+**Usage Pattern:**
 ```java
-public class MyServlet extends HttpServlet {
-    private Database db = new Database("jdbc/MyDB");  // ❌ Shared across threads
+while (cursor.next()) {
+    // Access row data
 }
 ```
 
+**Example:**
+```java
+import dev.tomeex.tools.Database;
+
+Database db = new Database("jdbc/MyDB");
+
+try {
+    db.open();
+
+    Database.Cursor cursor = db.cursor(
+        "SELECT id, name, status FROM tasks ORDER BY priority DESC"
+    );
+
+    try {
+        System.out.println("Processing tasks:");
+
+        // next() returns true while rows are available
+        while (cursor.next()) {
+            Long id = (Long) cursor.get("id");
+            String name = (String) cursor.get("name");
+            String status = (String) cursor.get("status");
+
+            System.out.println("Task " + id + ": " + name + " [" + status + "]");
+
+            // Process task...
+        }
+
+        // next() returns false when no more rows
+        System.out.println("All tasks processed");
+
+    } finally {
+        cursor.close();
+    }
+
+} catch (Exception e) {
+    e.printStackTrace();
+} finally {
+    db.close();
+}
+```
+
+[↑ Methods](#methods)
+
+## Cursor.get
+
+```java
+public Object get(String column) throws Exception
+```
+
+**Description:**
+Retrieves value from current cursor row by column name. Returns raw database value.
+
+**Parameters:**
+- `column` - Database column name (case-sensitive)
+
+**Return value:**
+- `Object` - Column value from current row (may be null)
+
+**Exceptions:**
+- `Exception` - Invalid column name, no current row, or access failure
+
+**Type Casting:**
+- Cast return value to appropriate type (String, Integer, etc.)
+- Handle null values appropriately
+
+**Example:**
+```java
+import dev.tomeex.tools.Database;
+
+Database db = new Database("jdbc/MyDB");
+
+try {
+    db.open();
+
+    Database.Cursor cursor = db.cursor(
+        "SELECT id, name, email, age, salary, active, created_at FROM users"
+    );
+
+    try {
+        while (cursor.next()) {
+            // Get values by column name
+            Long id = (Long) cursor.get("id");
+            String name = (String) cursor.get("name");
+            String email = (String) cursor.get("email");
+            Integer age = (Integer) cursor.get("age");
+            Double salary = (Double) cursor.get("salary");
+            Boolean active = (Boolean) cursor.get("active");
+            java.sql.Timestamp createdAt = (java.sql.Timestamp) cursor.get("created_at");
+
+            // Handle null values
+            String ageStr = (age != null) ? age.toString() : "N/A";
+            String salaryStr = (salary != null) ? String.format("%.2f", salary) : "N/A";
+
+            System.out.printf("User: %s (%s), Age: %s, Salary: %s, Active: %s%n",
+                name, email, ageStr, salaryStr, active);
+        }
+    } finally {
+        cursor.close();
+    }
+
+} catch (Exception e) {
+    e.printStackTrace();
+} finally {
+    db.close();
+}
+```
+
+[↑ Methods](#methods)
+
+## Cursor.getRow
+
+```java
+public Database.Record getRow() throws Exception
+```
+
+**Description:**
+Retrieves entire current row as Record object containing all columns. Provides convenient access to complete row data.
+
+**Parameters:**
+- None
+
+**Return value:**
+- `Database.Record` - Record containing all columns from current row
+
+**Exceptions:**
+- `Exception` - No current row, metadata access failure, or row retrieval error
+
+**Usage:**
+- Access all columns at once
+- Useful for logging or debugging
+- Alternative to individual get() calls
+
+**Example:**
+```java
+import dev.tomeex.tools.Database;
+
+Database db = new Database("jdbc/MyDB");
+
+try {
+    db.open();
+
+    Database.Cursor cursor = db.cursor(
+        "SELECT * FROM users WHERE active = ?",
+        true
+    );
+
+    try {
+        while (cursor.next()) {
+            // Get entire row as Record
+            Database.Record user = cursor.getRow();
+
+            // Useful for logging complete record
+            System.out.println("Full record: " + user);
+
+            // Access fields from the Record
+            String name = (String) user.get("name");
+            String email = (String) user.get("email");
+
+            // Check if specific fields exist
+            if (user.containsKey("phone")) {
+                System.out.println("Phone: " + user.get("phone"));
+            }
+
+            // Get all column names
+            System.out.println("Columns: " + user.keySet());
+
+            // Pass entire record to another method
+            processUser(user);
+        }
+    } finally {
+        cursor.close();
+    }
+
+} catch (Exception e) {
+    e.printStackTrace();
+} finally {
+    db.close();
+}
+
+// Helper method that accepts a Record
+private static void processUser(Database.Record user) {
+    System.out.println("Processing: " + user.get("name"));
+}
+```
+
+[↑ Methods](#methods)
+
+## Cursor.close
+
+```java
+public void close()
+```
+
+**Description:**
+Closes cursor and releases associated database resources. Closes underlying ResultSet and PreparedStatement.
+
+**Parameters:**
+- None
+
+**Return value:**
+- `void` - No return value
+
+**Resource Management:**
+- Always call after cursor usage
+- Safe to call multiple times
+- Required to prevent resource leaks
+
+**Example:**
+```java
+import dev.tomeex.tools.Database;
+
+Database db = new Database("jdbc/MyDB");
+
+try {
+    db.open();
+
+    Database.Cursor cursor = db.cursor("SELECT * FROM large_table");
+
+    try {
+        int count = 0;
+        while (cursor.next() && count < 10) {
+            System.out.println("Record: " + cursor.getRow());
+            count++;
+        }
+
+        // Even if we don't process all rows, close cursor
+        System.out.println("Processed " + count + " records, closing cursor");
+
+    } finally {
+        // Always close cursor in finally block
+        cursor.close();
+        System.out.println("Cursor closed, resources released");
+    }
+
+    // Safe to call close() multiple times
+    cursor.close(); // No error
+
+    // Can create new cursor after closing previous one
+    Database.Cursor cursor2 = db.cursor("SELECT * FROM another_table");
+    try {
+        while (cursor2.next()) {
+            // Process...
+        }
+    } finally {
+        cursor2.close();
+    }
+
+} catch (Exception e) {
+    e.printStackTrace();
+} finally {
+    db.close();
+}
+```
+
+[↑ Methods](#methods)
+
 ---
 
-## Version History
-
-**1.0.0** - Initial release
-- JNDI datasource support
-- Transaction management
-- Recordset and Cursor result handling
-- Multi-database support (PostgreSQL, MariaDB, SQLite)
-
----
-
-## License
-
-Copyright (C) 2018-2025 Riccardo Vacirca
-Licensed under Exclusive Free Beta License
-
----
-
-## Support
-
-For issues, questions, or feature requests, contact the TomEEx development team.
+@2020-2025 Riccardo Vacirca - All right reserved.

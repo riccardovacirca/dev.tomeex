@@ -693,6 +693,15 @@ install_claude_code() {
   fi
   print_info "Claude Code installation completed successfully!"
   print_info "Run 'source ~/.bashrc' or start a new shell session inside container to use 'claude'"
+
+  # Create symbolic link for Claude Code documentation
+  print_info "Creating documentation symbolic link..."
+  if docker exec "$CONTAINER_NAME" test -f /workspace/docs/PROJECT.md; then
+    docker exec "$CONTAINER_NAME" sh -c "ln -sf /workspace/docs/PROJECT.md /workspace/CLAUDE.md" 2>/dev/null || true
+    print_info "Documentation link created: /workspace/CLAUDE.md -> /workspace/docs/PROJECT.md"
+  else
+    print_warn "docs/PROJECT.md not found, symbolic link not created"
+  fi
 }
 
 create_webapp_env_file() {

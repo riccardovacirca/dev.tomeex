@@ -4,7 +4,41 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-TomEEx is a TomEE-based development environment for building Java web applications with Maven archetypes. It provides a Docker-based development setup with integrated database support (PostgreSQL, MariaDB, SQLite) and a collection of Maven archetypes for rapid application scaffolding.
+TomEEx is a Docker-based TomEE development environment for building Java web applications using Maven archetypes. It provides integrated database support (PostgreSQL, MariaDB, SQLite) and rapid application scaffolding through code generation.
+
+**Key Architecture Principle**: Projects are organized by `groupId` (not `artifactId`) - this is critical when navigating directories.
+
+## Quick Reference
+
+**Most Common Tasks:**
+```bash
+# Create new webapp
+make app name=myapp id=com.example db=postgres
+
+# Navigate to project (use groupId!)
+cd projects/com.example
+
+# First-time deploy
+make deploy
+
+# Incremental changes (fast)
+make
+
+# Access database
+make dbcli
+
+# Run tests
+make test
+
+# Clean redeploy
+make clean && make deploy
+```
+
+**Critical Paths:**
+- Projects: `projects/{groupId}/` (NOT `projects/{artifactId}/`)
+- TomEE webapps: `/usr/local/tomee/webapps/`
+- Logs: `logs/catalina.out` or `docker logs tomeex`
+- Container access: `docker exec -it tomeex bash`
 
 ## Core Commands
 
@@ -85,6 +119,16 @@ All archetypes use:
 - **groupId:** `dev.tomeex.archetypes`
 - **version:** `1.0.0`
 
+### TomEEx Tools Library
+
+**Location:** `projects/dev.tomeex.tools/`
+
+This is a JAR library providing utility classes for TomEEx projects. See documentation:
+- `projects/dev.tomeex.tools/docs/Database.md` - Database utilities
+- `projects/dev.tomeex.tools/docs/File.md` - File manipulation utilities
+
+The library is built and installed to Maven local repo via `make` commands in its directory.
+
 ### ContextView Add-on Architecture
 
 The `tomeex-addon-contextview` archetype implements a JSON-driven scenario architecture pattern (see `archetypes/tomeex-addon-contextview/AI_AGENT_MEMORY.md` for complete details):
@@ -139,9 +183,10 @@ make help                 # Show all available targets
 ```
 
 **Important Notes:**
-- First deployment: use `make deploy` to create exploded WAR
-- Subsequent changes: use `make` (quick-deploy) for fast incremental sync
-- Clean redeploy: `make clean && make deploy`
+- **First deployment:** Always use `make deploy` to create exploded WAR directory
+- **Incremental changes:** Use `make` (quick-deploy) for fast hot-reload (compiles + rsync)
+- **Clean redeploy:** `make clean && make deploy`
+- **Known Issue:** Quick-deploy requires the exploded WAR to exist; if it fails, run `make deploy` first
 
 ### Database Configuration
 
@@ -198,12 +243,12 @@ Default credentials from `.env`:
 
 ## Key Implementation Patterns
 
-### Project Naming Convention
+### Project Naming Convention (CRITICAL)
 - **Directory:** `projects/{groupId}/` (e.g., `projects/com.example/`)
 - **artifactId:** Used for WAR filename and context path
-- **groupId:** Used for Java package and directory organization
+- **groupId:** Used for directory organization and Java package
 
-When you see references to project locations, always use `groupId` for the directory path.
+**Always use `groupId` for directory paths, not `artifactId`**. Example: webapp with `artifactId=myapp` and `groupId=com.example` lives in `projects/com.example/`.
 
 ### Hot Reload Strategy
 
@@ -318,7 +363,11 @@ DROP USER 'myapp'@'%';
 - Check container is running: `docker ps | grep tomeex`
 
 ### Quick deploy fails
-First deployment must use `make deploy` to create exploded WAR directory. After that, `make` (quick-deploy) works for incremental updates.
+**Symptom:** `Error: WAR not yet extracted. Run 'make deploy' first`
+
+**Cause:** Quick-deploy uses rsync to sync compiled classes to an exploded WAR directory at `/usr/local/tomee/webapps/{app}/`. This directory only exists after TomEE extracts the WAR file.
+
+**Solution:** Run `make deploy` first to create the exploded WAR, then use `make` for subsequent changes.
 
 ### Java version issues
 Always set JAVA_HOME in container:
