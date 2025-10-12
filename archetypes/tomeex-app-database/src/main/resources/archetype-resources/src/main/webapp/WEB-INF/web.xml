@@ -18,7 +18,18 @@
         <servlet-name>SystemLogServlet</servlet-name>
         <url-pattern>/api/logs/*</url-pattern>
     </servlet-mapping>
-    
+
+    <!-- Default MIME mappings with charset -->
+    <mime-mapping>
+        <extension>html</extension>
+        <mime-type>text/html; charset=UTF-8</mime-type>
+    </mime-mapping>
+
+    <mime-mapping>
+        <extension>htm</extension>
+        <mime-type>text/html; charset=UTF-8</mime-type>
+    </mime-mapping>
+
     <!-- Database Resource Reference -->
     <resource-ref>
         <description>Database connection</description>

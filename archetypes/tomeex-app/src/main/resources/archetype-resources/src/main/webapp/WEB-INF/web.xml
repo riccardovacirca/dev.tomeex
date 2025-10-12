@@ -18,7 +18,18 @@
         <servlet-name>HelloServlet</servlet-name>
         <url-pattern>/api/hello</url-pattern>
     </servlet-mapping>
-    
+
+    <!-- Default MIME mappings with charset -->
+    <mime-mapping>
+        <extension>html</extension>
+        <mime-type>text/html; charset=UTF-8</mime-type>
+    </mime-mapping>
+
+    <mime-mapping>
+        <extension>htm</extension>
+        <mime-type>text/html; charset=UTF-8</mime-type>
+    </mime-mapping>
+
     <!-- Default error pages -->
     <error-page>
         <error-code>404</error-code>
