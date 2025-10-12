@@ -1,5 +1,5 @@
-- al termine della creazione di una app bisogna mostrare
-  anche l'indirizzo inteno al container Deployed: http://localhost:8080
+- [FIXED] Al termine della creazione di una app bisogna mostrare
+          anche l'indirizzo inteno al container Deployed: http://localhost:8080
 
 - Aggiungere al progetto una cartella tomeex-dsl per i DSL degli agenti AI
 
@@ -10,13 +10,13 @@
     - Il codie SQL del file è idempotente.
       Es. CREATE TABLE IF NOT EXISTS... oppure INSERT... ON DUPLICATE KEY...
 
-- [FIXED]  Quando una webapp viene scaricata da un repo remoto invece di essere generata
-        localmente deve esistere un target di installazione che esegue tutte le
-        operazioni di deploy
+- [FIXED] Quando una webapp viene scaricata da un repo remoto invece di essere
+          generata localmente deve esistere un target di installazione che
+          esegue tutte le operazioni di deploy
 
-- [FIXED]  File PROJECT.md che contiene le specifiche del progetto e dal quale generare
-        il file CLAUDE.md mediante un template che incorpora il contenuto di PROJECT
-        gestito con install.sh
+- [FIXED] File PROJECT.md che contiene le specifiche del progetto e dal quale
+          generare il file CLAUDE.md mediante un template che incorpora il
+          contenuto di PROJECT gestito con install.sh
 
 - [DISABLED] quick deploy non funziona
 
