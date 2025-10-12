@@ -3,46 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${artifactId} API</title>
+    <title>${artifactId}</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 40px; }
-        .endpoint { background: #f5f5f5; padding: 10px; margin: 10px 0; border-radius: 5px; }
-        .method { font-weight: bold; color: #fff; padding: 2px 6px; border-radius: 3px; background: #61affe; }
-        code { background: #f1f1f1; padding: 2px 4px; border-radius: 3px; }
+        body { font-family: monospace; max-width: 800px; margin: 40px auto; padding: 0 20px; }
+        h1 { border-bottom: 2px solid #333; padding-bottom: 10px; }
+        .endpoint { margin: 8px 0; }
+        .method { display: inline-block; width: 60px; font-weight: bold; }
+        .get { color: #0066cc; }
+        code { background: #f5f5f5; padding: 2px 6px; }
+        .section { margin: 30px 0; }
     </style>
 </head>
 <body>
-    <h1>${artifactId} API</h1>
-    <p>Simple ${artifactId} API built with Jakarta Servlets</p>
-    
-    <h2>Available Endpoints</h2>
-    
-    <div class="endpoint">
-        <span class="method">GET</span> <code>/api/hello</code>
-        <p>Returns a JSON hello world message with timestamp</p>
-    </div>
-    
-    <h2>Example Usage</h2>
-    
-    <h3>Get Hello Message:</h3>
-    <pre><code>curl http://localhost:9292/${artifactId}/api/hello</code></pre>
-    
-    <h3>Example Response:</h3>
-    <pre><code>{
-  "message": "Hello World from ${artifactId} API!",
-  "timestamp": "2025-09-02T17:30:00",
-  "service": "${artifactId}",
-  "version": "${version}",
-  "status": "success"
-}</code></pre>
+    <h1>${artifactId}</h1>
+    <p>Simple TomEE webapp with Jakarta Servlets.</p>
 
-    <h2>Features</h2>
-    <ul>
-        <li>✅ Simple JSON response</li>
-        <li>✅ CORS enabled for development</li>
-        <li>✅ Timestamp included</li>
-        <li>✅ No database dependencies</li>
-        <li>✅ Ready to use</li>
-    </ul>
+    <div class="section">
+        <h2>API Endpoints</h2>
+
+        <h3>Public (Host):</h3>
+        <div class="endpoint">
+            <span class="method get">GET</span> <code>http://localhost:9292/${artifactId}/api/hello</code>
+        </div>
+
+        <h3>Internal (Container):</h3>
+        <div class="endpoint">
+            <span class="method get">GET</span> <code>http://localhost:8080/${artifactId}/api/hello</code>
+        </div>
+    </div>
 </body>
 </html>
