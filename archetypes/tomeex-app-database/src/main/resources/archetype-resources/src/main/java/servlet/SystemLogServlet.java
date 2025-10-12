@@ -1,6 +1,7 @@
 package ${package}.servlet;
 
 import dev.tomeex.tools.Database;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import jakarta.servlet.ServletException;
@@ -9,6 +10,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
+import java.util.Map;
 
 public class SystemLogServlet extends HttpServlet {
 
@@ -73,8 +75,10 @@ public class SystemLogServlet extends HttpServlet {
         Database db = null;
 
         try {
-            @SuppressWarnings("unchecked")
-            java.util.Map<String, Object> logData = objectMapper.readValue(request.getReader(), java.util.Map.class);
+            Map<String, Object> logData = objectMapper.readValue(
+                request.getReader(),
+                new TypeReference<Map<String, Object>>() {}
+            );
 
             db = new Database("jdbc/${artifactId}DB");
             db.open();
