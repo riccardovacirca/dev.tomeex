@@ -36,20 +36,6 @@
             <version>0.1.0-beta</version>
         </dependency>
 
-        <!-- JDBI Core -->
-        <dependency>
-            <groupId>org.jdbi</groupId>
-            <artifactId>jdbi3-core</artifactId>
-            <version>3.45.1</version>
-        </dependency>
-        
-        <!-- JDBI SQL Object Plugin -->
-        <dependency>
-            <groupId>org.jdbi</groupId>
-            <artifactId>jdbi3-sqlobject</artifactId>
-            <version>3.45.1</version>
-        </dependency>
-        
         <!-- Database Driver (placeholder) -->
 #if( $dbType == "postgres" )
         <dependency>

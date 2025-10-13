@@ -21,7 +21,7 @@ cd projects/com.example
 # First-time deploy
 make deploy
 
-# Incremental changes (fast)
+# Deploy changes
 make
 
 # Access database
@@ -129,6 +129,8 @@ This is a JAR library providing utility classes for TomEEx projects. See documen
 
 The library is built and installed to Maven local repo via `make` commands in its directory.
 
+**Important:** As of January 2025, TomEEx uses `dev.tomeex.tools.Database` as the standard database access layer. JDBI has been completely removed from all archetypes.
+
 ### ContextView Add-on Architecture
 
 The `tomeex-addon-contextview` archetype implements a JSON-driven scenario architecture pattern (see `archetypes/tomeex-addon-contextview/AI_AGENT_MEMORY.md` for complete details):
@@ -169,7 +171,7 @@ make contextview
 Each generated project includes these common targets:
 
 ```bash
-make                      # Quick incremental deploy (compile + rsync) [DEFAULT]
+make                      # Deploy WAR to TomEE (full build + deploy) [DEFAULT]
 make build                # Build WAR (dev profile, reloadable)
 make release              # Build production release package (tar.gz)
 make deploy               # Full build + deploy WAR to TomEE
@@ -184,9 +186,9 @@ make help                 # Show all available targets
 
 **Important Notes:**
 - **First deployment:** Always use `make deploy` to create exploded WAR directory
-- **Incremental changes:** Use `make` (quick-deploy) for fast hot-reload (compiles + rsync)
+- **Incremental changes:** Use `make` for deployment (defaults to full deploy due to JNDI hot reload issues)
 - **Clean redeploy:** `make clean && make deploy`
-- **Known Issue:** Quick-deploy requires the exploded WAR to exist; if it fails, run `make deploy` first
+- **Known Issue:** Quick-deploy has been DISABLED due to JNDI context corruption after multiple hot reloads (see README.md Known Issues)
 
 ### Database Configuration
 
@@ -250,20 +252,16 @@ Default credentials from `.env`:
 
 **Always use `groupId` for directory paths, not `artifactId`**. Example: webapp with `artifactId=myapp` and `groupId=com.example` lives in `projects/com.example/`.
 
-### Hot Reload Strategy
+### Deployment Strategy
 
-**Quick Deploy (make):**
-1. Compiles Java sources to `target/classes/`
-2. Uses `rsync` to sync classes to exploded WAR at `/usr/local/tomee/webapps/{app}/`
-3. Touches `web.xml` to trigger TomEE hot reload
-4. Fast iteration - seconds not minutes
+**Note:** Quick-deploy (incremental rsync) is currently DISABLED due to JNDI context corruption issues after multiple hot reloads. See README.md for details.
 
-**Full Deploy (make deploy):**
-1. Builds complete WAR file
-2. Removes old deployment
-3. Copies new WAR to webapps/
-4. TomEE extracts and deploys
-5. Use for major changes or first deployment
+**Standard Deploy (make or make deploy):**
+1. Builds complete WAR file with Maven
+2. Removes old deployment from TomEE webapps
+3. Copies new WAR to webapps/ directory
+4. TomEE automatically extracts and deploys the WAR
+5. Use for all deployments until hot reload issues are resolved
 
 ### Database Setup Flow
 
@@ -289,7 +287,7 @@ cd projects/com.mycompany
 # Edit Java sources in src/main/java
 # Edit webapp resources in src/main/webapp
 
-# 4. Quick deploy during development
+# 4. Deploy during development
 make
 
 # 5. Run tests
@@ -362,12 +360,16 @@ DROP USER 'myapp'@'%';
 - Ensure no port conflicts: `docker ps`
 - Check container is running: `docker ps | grep tomeex`
 
-### Quick deploy fails
-**Symptom:** `Error: WAR not yet extracted. Run 'make deploy' first`
+### Hot Reload / JNDI Issues
+**Symptom:** Database connection failures after multiple deployments with error: `ClassCastException: JNDI lookup returned IvmContext instead of DataSource`
 
-**Cause:** Quick-deploy uses rsync to sync compiled classes to an exploded WAR directory at `/usr/local/tomee/webapps/{app}/`. This directory only exists after TomEE extracts the WAR file.
+**Cause:** TomEE's JNDI context becomes corrupted during hot reload when webapps are reloaded multiple times without a full container restart. Quick-deploy has been DISABLED as a workaround.
 
-**Solution:** Run `make deploy` first to create the exploded WAR, then use `make` for subsequent changes.
+**Current Status:** As of 2025-01-11, quick-deploy is disabled. All deployments use full build + deploy cycle.
+
+**Future Solutions:** May require disabling `reloadable="true"`, implementing JNDI context cleanup, or using alternative connection pooling.
+
+**Reference:** See README.md "Known Issues" section and test project at `projects/com.testqd/`
 
 ### Java version issues
 Always set JAVA_HOME in container:

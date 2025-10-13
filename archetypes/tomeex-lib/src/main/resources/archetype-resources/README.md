@@ -71,6 +71,13 @@ cd /workspace/projects/${groupId}
 - `make docs` - Generate Javadoc HTML documentation
 - `make check-repo` - Verify installation in Maven repo
 
+## Example Classes
+
+The library includes a simple example class:
+
+- **HelloWorld.java** - Simple greeting functionality demonstrating basic library structure
+- **HelloWorldTest.java** - Unit tests showing how to test library code
+
 ## License
 
 See LICENSE.md for licensing information.

@@ -6,7 +6,7 @@ ${artifactId} Library for TomEEx projects
 
 Database-enabled JAR library providing data access functionality for TomEE webapps and libraries.
 
-This library uses JDBI for database operations and supports:
+This library uses **dev.tomeex.tools.Database** for database operations and supports:
 - PostgreSQL
 - MariaDB
 - SQLite
@@ -39,7 +39,7 @@ make install
 
 This will:
 - Compile the library with Java 17
-- Run tests (using H2 in-memory database)
+- Run tests (using JNDI-configured database from .env)
 - Install to local Maven repository (`~/.m2/repository/${groupId}/${artifactId}/${version}/`)
 - Copy JARs to `/workspace/lib/` for backup
 
@@ -73,10 +73,17 @@ cd /workspace/projects/${groupId}
 - `make install-full` - Install main + sources + javadoc JARs
 - `make build` - Build JAR and copy to /workspace/lib/
 - `make compile` - Compile source code only
-- `make test` - Run unit tests (using H2 in-memory database)
+- `make test` - Run unit tests (reads database config from .env)
 - `make clean` - Clean build artifacts
 - `make docs` - Generate Javadoc HTML documentation
 - `make check-repo` - Verify installation in Maven repo
+
+## Example Classes
+
+The library includes example classes demonstrating database access:
+
+- **HelloWorld.java** - Shows how to use `dev.tomeex.tools.Database` to execute queries via JNDI
+- **HelloWorldTest.java** - Demonstrates JNDI datasource setup for testing PostgreSQL, MariaDB, and SQLite
 
 ## License
 

@@ -37,20 +37,6 @@
             <version>0.1.0-beta</version>
         </dependency>
 
-        <!-- JDBI Core -->
-        <dependency>
-            <groupId>org.jdbi</groupId>
-            <artifactId>jdbi3-core</artifactId>
-            <version>3.45.1</version>
-        </dependency>
-        
-        <!-- JDBI SQL Object Plugin -->
-        <dependency>
-            <groupId>org.jdbi</groupId>
-            <artifactId>jdbi3-sqlobject</artifactId>
-            <version>3.45.1</version>
-        </dependency>
-        
         <!-- Database Drivers - All supported databases -->
         <!-- PostgreSQL Driver -->
         <dependency>
@@ -97,6 +83,22 @@
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
             <version>2.2.224</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Apache Commons DBCP2 for test datasource -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-dbcp2</artifactId>
+            <version>2.11.0</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Tomcat JNDI implementation for testing -->
+        <dependency>
+            <groupId>org.apache.tomcat</groupId>
+            <artifactId>tomcat-catalina</artifactId>
+            <version>10.1.18</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
