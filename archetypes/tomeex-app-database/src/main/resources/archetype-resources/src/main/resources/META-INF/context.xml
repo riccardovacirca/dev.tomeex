@@ -1,6 +1,6 @@
 <Context>
 #if( $dbType == "postgres" )
-    <Resource name="jdbc/${artifactId}DB"
+    <Resource name="jdbc/${artifactId}"
               auth="Container"
               type="javax.sql.DataSource"
               maxTotal="20"
@@ -11,7 +11,7 @@
               driverClassName="org.postgresql.Driver"
               url="jdbc:postgresql://tomeex-postgres:5432/${artifactId}"/>
 #elseif( $dbType == "mariadb" )
-    <Resource name="jdbc/${artifactId}DB"
+    <Resource name="jdbc/${artifactId}"
               auth="Container"
               type="javax.sql.DataSource"
               maxTotal="20"
@@ -22,7 +22,7 @@
               driverClassName="org.mariadb.jdbc.Driver"
               url="jdbc:mariadb://tomeex-mariadb:3306/${artifactId}"/>
 #elseif( $dbType == "sqlite" )
-    <Resource name="jdbc/${artifactId}DB"
+    <Resource name="jdbc/${artifactId}"
               auth="Container"
               type="javax.sql.DataSource"
               maxTotal="20"
