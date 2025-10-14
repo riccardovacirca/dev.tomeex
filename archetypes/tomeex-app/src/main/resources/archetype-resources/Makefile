@@ -124,6 +124,7 @@ push:
 	fi
 	@echo "Configuring Git..."
 	@git config --global --add safe.directory /workspace/projects/${groupId}
+	@git config --global credential.helper store
 	@USER="$(GIT_USER)"; \
 	MAIL="$(GIT_MAIL)"; \
 	if [ -z "$$USER" ] || [ -z "$$MAIL" ]; then \
@@ -149,6 +150,33 @@ push:
 	@echo "Pushing to remote repository..."
 	@git push
 	@echo "Push completed successfully"
+
+# Git pull from remote repository
+pull:
+	@echo "Configuring Git..."
+	@git config --global --add safe.directory /workspace/projects/${groupId}
+	@git config --global credential.helper store
+	@USER="$(GIT_USER)"; \
+	MAIL="$(GIT_MAIL)"; \
+	if [ -z "$$USER" ] || [ -z "$$MAIL" ]; then \
+		if [ -f /workspace/.env ]; then \
+			USER=$$(grep "^GIT_USER=" /workspace/.env | cut -d= -f2 | sed 's/^#.*//'); \
+			MAIL=$$(grep "^GIT_MAIL=" /workspace/.env | cut -d= -f2 | sed 's/^#.*//'); \
+		fi; \
+	fi; \
+	if [ -z "$$USER" ] || [ -z "$$MAIL" ]; then \
+		echo "Error: Git credentials not configured"; \
+		echo "Please set GIT_USER and GIT_MAIL either:"; \
+		echo "  1. In this Makefile (uncomment and edit lines 11-12)"; \
+		echo "  2. In /workspace/.env file"; \
+		exit 1; \
+	fi; \
+	git config user.name "$$USER"; \
+	git config user.email "$$MAIL"; \
+	echo "Git configured: $$USER <$$MAIL>"
+	@echo "Pulling changes from remote repository..."
+	@git pull
+	@echo "Pull completed successfully"
 
 # Database CLI - Connect to application database or execute SQL file
 dbcli:
@@ -310,6 +338,7 @@ help:
 	@echo "  clean         - Clean build artifacts and remove from TomEE"
 	@echo "  git-safe      - Add project to Git safe.directory"
 	@echo "  push          - Git add, commit and push (requires m=\"message\")"
+	@echo "  pull          - Git pull changes from remote repository"
 	@echo "  dbcli         - Connect to application database"
 	@echo "  dbcli f=<file.sql> - Execute SQL file in database"
 	@echo "  update        - Update project configuration (e.g., database password)"
@@ -321,4 +350,4 @@ help:
 	@echo ""
 	@echo "For clean redeploy: make clean && make deploy"
 
-.PHONY: build release compile setup-database install deploy quick-deploy test test-verbose clean git-safe push dbcli update contextview help
+.PHONY: build release compile setup-database install deploy quick-deploy test test-verbose clean git-safe push pull dbcli update contextview help

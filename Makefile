@@ -3,7 +3,7 @@ MAKEFLAGS += --no-print-directory
 
 PROJECTS_DIR = projects
 
-.PHONY: help app lib remove archetypes list push default
+.PHONY: help app lib remove archetypes list push pull default
 
 default:
 	@$(MAKE) help
@@ -16,12 +16,14 @@ help:
 	@echo "  make list"
 	@echo "  make archetypes"
 	@echo "  make push m=\"<commit message>\""
+	@echo "  make pull"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make app id=com.example.myapi db=postgres"
 	@echo "  make lib id=com.example.mylib db=true"
 	@echo "  make remove id=com.example.myapi"
 	@echo "  make push m=\"updated project\""
+	@echo "  make pull"
 	@echo ""
 	@echo "Note: artifactId is extracted from the last part of id"
 	@echo "      id=com.example.myapi → groupId=com.example.myapi, artifactId=myapi"
@@ -140,6 +142,7 @@ push:
 	fi
 	@echo "Configuring Git..."
 	@git config --global --add safe.directory /workspace
+	@git config --global credential.helper store
 	@if [ -f .env ]; then \
 		GIT_USER=$$(grep "^GIT_USER=" .env | cut -d= -f2); \
 		GIT_MAIL=$$(grep "^GIT_MAIL=" .env | cut -d= -f2); \
@@ -163,3 +166,27 @@ push:
 	@echo "Pushing to remote repository..."
 	@git push
 	@echo "Push completed successfully"
+
+pull:
+	@echo "Configuring Git..."
+	@git config --global --add safe.directory /workspace
+	@git config --global credential.helper store
+	@if [ -f .env ]; then \
+		GIT_USER=$$(grep "^GIT_USER=" .env | cut -d= -f2); \
+		GIT_MAIL=$$(grep "^GIT_MAIL=" .env | cut -d= -f2); \
+		if [ -n "$$GIT_USER" ] && [ -n "$$GIT_MAIL" ]; then \
+			git config user.name "$$GIT_USER"; \
+			git config user.email "$$GIT_MAIL"; \
+			echo "Git configured: $$GIT_USER <$$GIT_MAIL>"; \
+		else \
+			echo "Warning: GIT_USER or GIT_MAIL not set in .env"; \
+			echo "Please configure Git credentials in .env file"; \
+			exit 1; \
+		fi; \
+	else \
+		echo "Error: .env file not found"; \
+		exit 1; \
+	fi
+	@echo "Pulling changes from remote repository..."
+	@git pull
+	@echo "Pull completed successfully"
