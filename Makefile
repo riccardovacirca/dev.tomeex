@@ -10,53 +10,58 @@ default:
 
 help:
 	@echo "Usage:"
-	@echo "  make app name=<artifactId> id=<groupId> [db=<db_type>]"
-	@echo "  make lib name=<artifactId> id=<groupId> [db=true]"
-	@echo "  make remove id=<groupId>"
+	@echo "  make app id=<groupId.artifactId> [db=<db_type>]"
+	@echo "  make lib id=<groupId.artifactId> [db=true]"
+	@echo "  make remove id=<groupId.artifactId>"
 	@echo "  make list"
 	@echo "  make archetypes"
 	@echo "  make push m=\"<commit message>\""
 	@echo ""
 	@echo "Examples:"
-	@echo "  make app name=myapi id=com.example db=postgres"
-	@echo "  make lib name=mylib id=com.example db=true"
-	@echo "  make remove id=com.example"
+	@echo "  make app id=com.example.myapi db=postgres"
+	@echo "  make lib id=com.example.mylib db=true"
+	@echo "  make remove id=com.example.myapi"
 	@echo "  make push m=\"updated project\""
+	@echo ""
+	@echo "Note: artifactId is extracted from the last part of id"
+	@echo "      id=com.example.myapi → groupId=com.example.myapi, artifactId=myapi"
 
 app:
-	@if [ -z "$(name)" ]; then \
-		echo "Error: name parameter required"; \
-		echo "Usage: make app name=<app_name> id=<groupId> [db=<db_type>]"; \
-		exit 1; \
-	fi
 	@if [ -z "$(id)" ]; then \
-		echo "Error: id parameter required for groupId"; \
-		echo "Usage: make app name=<app_name> id=<groupId> [db=<db_type>]"; \
-		echo "Example: make app name=my-webapp id=com.mycompany"; \
+		echo "Error: id parameter required"; \
+		echo "Usage: make app id=<groupId.artifactId> [db=<db_type>]"; \
+		echo "Example: make app id=com.example.myapp db=postgres"; \
 		exit 1; \
 	fi
-	@if [ -n "$(db)" ]; then \
-		./install.sh --create-webapp $(name) --groupid $(id) --database $(db); \
+	@NAME=$$(echo "$(id)" | rev | cut -d. -f1 | rev); \
+	if [ -z "$$NAME" ]; then \
+		echo "Error: Cannot extract artifactId from id=$(id)"; \
+		echo "Id must contain at least one dot (e.g., com.example.myapp)"; \
+		exit 1; \
+	fi; \
+	if [ -n "$(db)" ]; then \
+		./install.sh --create-webapp $$NAME --groupid $(id) --database $(db); \
 	else \
-		./install.sh --create-webapp $(name) --groupid $(id); \
+		./install.sh --create-webapp $$NAME --groupid $(id); \
 	fi
 
 lib:
-	@if [ -z "$(name)" ]; then \
-		echo "Error: name parameter required"; \
-		echo "Usage: make lib name=<lib_name> id=<groupId> [db=true]"; \
-		exit 1; \
-	fi
 	@if [ -z "$(id)" ]; then \
-		echo "Error: id parameter required for groupId"; \
-		echo "Usage: make lib name=<lib_name> id=<groupId> [db=true]"; \
-		echo "Example: make lib name=my-library id=com.mycompany.lib"; \
+		echo "Error: id parameter required"; \
+		echo "Usage: make lib id=<groupId.artifactId> [db=true]"; \
+		echo "Example: make lib id=com.example.mylib db=true"; \
 		exit 1; \
 	fi
-	@if [ "$(db)" = "true" ]; then \
-		./install.sh --create-library $(name) --groupid $(id) --with-database; \
+	@NAME=$$(echo "$(id)" | rev | cut -d. -f1 | rev); \
+	if [ -z "$$NAME" ]; then \
+		echo "Error: Cannot extract artifactId from id=$(id)"; \
+		echo "Id must contain at least one dot (e.g., com.example.mylib)"; \
+		exit 1; \
+	fi; \
+	if [ "$(db)" = "true" ]; then \
+		./install.sh --create-library $$NAME --groupid $(id) --with-database; \
 	else \
-		./install.sh --create-library $(name) --groupid $(id); \
+		./install.sh --create-library $$NAME --groupid $(id); \
 	fi
 
 remove:

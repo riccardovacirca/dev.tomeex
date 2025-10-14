@@ -13,10 +13,10 @@ TomEEx is a Docker-based TomEE development environment for building Java web app
 **Most Common Tasks:**
 ```bash
 # Create new webapp
-make app name=myapp id=com.example db=postgres
+make app id=com.example.myapp db=postgres
 
-# Navigate to project (use groupId!)
-cd projects/com.example
+# Navigate to project
+cd projects/com.example.myapp
 
 # First-time deploy
 make deploy
@@ -35,7 +35,7 @@ make clean && make deploy
 ```
 
 **Critical Paths:**
-- Projects: `projects/{groupId}/` (NOT `projects/{artifactId}/`)
+- Projects: `projects/{groupId}/` (e.g., `projects/com.example.myapp/`)
 - TomEE webapps: `/usr/local/tomee/webapps/`
 - Logs: `logs/catalina.out` or `docker logs tomeex`
 - Container access: `docker exec -it tomeex bash`
@@ -48,33 +48,36 @@ make clean && make deploy
 ./install.sh
 
 # Install with specific database
-./install.sh --postgres    # PostgreSQL
-./install.sh --mariadb     # MariaDB
-./install.sh --sqlite      # SQLite
+./install.sh --postgres    # PostgreSQL (port 15432)
+./install.sh --mariadb     # MariaDB (port 13306)
+./install.sh --sqlite      # SQLite (file-based, no network port)
 
 # Install Claude Code in container
 ./install.sh --claude
+
+# Multiple databases can be installed
+./install.sh --postgres --mariadb --sqlite
 ```
 
 ### Project Management
 ```bash
 # Create new webapp (simple)
-make app name=myapp id=com.example
+make app id=com.example.myapp
 
 # Create webapp with database
-make app name=myapp id=com.example db=postgres
+make app id=com.example.myapp db=postgres
 
 # Create library (JAR)
-make lib name=mylib id=com.example.lib
+make lib id=com.example.mylib
 
 # Create library with database support
-make lib name=mylib id=com.example.lib db=true
+make lib id=com.example.mylib db=true
 
 # List all projects
 make list
 
 # Remove project
-make remove id=com.example
+make remove id=com.example.myapp
 
 # Rebuild all archetypes
 make archetypes
@@ -131,6 +134,15 @@ The library is built and installed to Maven local repo via `make` commands in it
 
 **Important:** As of January 2025, TomEEx uses `dev.tomeex.tools.Database` as the standard database access layer. JDBI has been completely removed from all archetypes.
 
+### Example Projects in Repository
+
+**dev.tomeex.mpi** (`projects/dev.tomeex.mpi/`)
+- Master Patient Index (MPI) implementation
+- RESTful API with PostgreSQL database support
+- Complex database schema with stored procedures (`database/v6/`)
+- Example of production-ready webapp structure
+- Includes database migration scripts and dashboard utilities
+
 ### ContextView Add-on Architecture
 
 The `tomeex-addon-contextview` archetype implements a JSON-driven scenario architecture pattern (see `archetypes/tomeex-addon-contextview/AI_AGENT_MEMORY.md` for complete details):
@@ -175,12 +187,13 @@ make                      # Deploy WAR to TomEE (full build + deploy) [DEFAULT]
 make build                # Build WAR (dev profile, reloadable)
 make release              # Build production release package (tar.gz)
 make deploy               # Full build + deploy WAR to TomEE
-make install              # First-time deployment (setup DB + deploy)
+make install              # First-time deployment (setup DB + deploy) - for cloned projects
 make clean                # Clean build artifacts + remove from TomEE
 make test                 # Run unit tests
 make dbcli                # Connect to application database
-make dbcli load=file.sql  # Execute SQL file in database
+make dbcli f=file.sql     # Execute SQL file in database
 make contextview          # Add ContextView functionality to webapp
+make push m="message"     # Git add, commit, and push changes
 make help                 # Show all available targets
 ```
 
@@ -189,6 +202,7 @@ make help                 # Show all available targets
 - **Incremental changes:** Use `make` for deployment (defaults to full deploy due to JNDI hot reload issues)
 - **Clean redeploy:** `make clean && make deploy`
 - **Known Issue:** Quick-deploy has been DISABLED due to JNDI context corruption after multiple hot reloads (see README.md Known Issues)
+- **Cloned projects:** Use `make install` to set up database and deploy when cloning from a remote repository
 
 ### Database Configuration
 
@@ -208,6 +222,27 @@ JAR files placed in `/workspace/lib/` are automatically installed to Maven local
 1. Extracts Maven coordinates from JAR's `META-INF/maven/*/pom.properties`
 2. Installs main JAR, sources JAR, and javadoc JAR (if present)
 3. Makes them available as Maven dependencies
+
+**Requirements for JAR installation:**
+- JAR must contain `META-INF/maven/{groupId}/{artifactId}/pom.properties`
+- Properties file must define: `groupId`, `artifactId`, `version`
+- Optional companion files: `{artifactId}-sources.jar`, `{artifactId}-javadoc.jar`
+
+**Example workflow:**
+```bash
+# Place JAR in lib directory
+cp custom-library-1.0.0.jar /workspace/lib/
+
+# Run install to add to Maven local repo
+./install.sh
+
+# Use in pom.xml
+<dependency>
+    <groupId>com.custom</groupId>
+    <artifactId>custom-library</artifactId>
+    <version>1.0.0</version>
+</dependency>
+```
 
 ## Container Access
 
@@ -246,11 +281,18 @@ Default credentials from `.env`:
 ## Key Implementation Patterns
 
 ### Project Naming Convention (CRITICAL)
-- **Directory:** `projects/{groupId}/` (e.g., `projects/com.example/`)
-- **artifactId:** Used for WAR filename and context path
-- **groupId:** Used for directory organization and Java package
+- **Directory:** `projects/{groupId}/` (e.g., `projects/com.example.myapp/`)
+- **artifactId:** Extracted from last part of groupId (e.g., `myapp`)
+- **groupId:** Full id parameter (e.g., `com.example.myapp`)
+- **WAR/JAR filename:** Uses artifactId (e.g., `myapp.war`)
+- **Context path:** Uses artifactId (e.g., `/myapp`)
 
-**Always use `groupId` for directory paths, not `artifactId`**. Example: webapp with `artifactId=myapp` and `groupId=com.example` lives in `projects/com.example/`.
+**Example:**
+- Command: `make app id=com.example.myapp`
+- Creates: `projects/com.example.myapp/`
+- groupId: `com.example.myapp`
+- artifactId: `myapp` (auto-extracted)
+- Deployed as: `http://localhost:9292/myapp`
 
 ### Deployment Strategy
 
@@ -278,10 +320,10 @@ For database-enabled projects:
 
 ```bash
 # 1. Create webapp with database
-make app name=myapi id=com.mycompany db=postgres
+make app id=com.mycompany.myapi db=postgres
 
 # 2. Navigate to project
-cd projects/com.mycompany
+cd projects/com.mycompany.myapi
 
 # 3. Develop your application
 # Edit Java sources in src/main/java
@@ -299,6 +341,34 @@ make dbcli
 # 7. Clean redeploy if needed
 make clean && make deploy
 ```
+
+### Working with Cloned Projects
+
+When cloning an existing project from a remote Git repository:
+
+```bash
+# 1. Clone the TomEEx environment
+git clone <repository-url>
+cd tomeex
+
+# 2. Initialize environment
+./install.sh --postgres  # or --mariadb, --sqlite
+
+# 3. Navigate to cloned project
+cd projects/{groupId}
+
+# 4. First-time setup (creates database + deploys)
+make install
+
+# 5. Subsequent deployments
+make
+```
+
+**Note:** The `make install` target:
+- Reads database configuration from project's `.env` file
+- Creates database and user automatically
+- Deploys the webapp to TomEE
+- Only needed once after cloning
 
 ### Adding ContextView to Existing Webapp
 

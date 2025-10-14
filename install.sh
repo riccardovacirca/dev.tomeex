@@ -708,14 +708,48 @@ create_webapp_env_file() {
   local group_id="$1"
   local app_name="$2"
   local db_type="$3"
+  local project_version="$4"
   local env_file="projects/$group_id/.env"
+
   print_info "Creating .env file for webapp '$app_name'..."
-  case "$db_type" in
-    postgres)
-      local postgres_host=$(grep POSTGRES_CONTAINER_NAME .env | cut -d= -f2)
-      local postgres_port=$(grep POSTGRES_PORT .env | cut -d= -f2)
-      cat > "$env_file" << EOF
-# Database Configuration for $app_name
+
+  # Extract project metadata and Git config from root .env
+  local git_user=$(grep "^GIT_USER=" .env 2>/dev/null | cut -d= -f2)
+  local git_mail=$(grep "^GIT_MAIL=" .env 2>/dev/null | cut -d= -f2)
+  local project_license="PolyForm Noncommercial License 1.0.0"
+  local creation_date=$(date +"%Y-%m-%d")
+
+  # Set defaults if Git config is not available
+  if [ -z "$git_user" ]; then
+    git_user=""
+  fi
+  if [ -z "$git_mail" ]; then
+    git_mail=""
+  fi
+
+  # Write header with project metadata (always included)
+  cat > "$env_file" << EOF
+# Project Metadata
+PROJECT_GROUP_ID=$group_id
+PROJECT_ARTIFACT_ID=$app_name
+PROJECT_VERSION=$project_version
+PROJECT_CREATED=$creation_date
+PROJECT_LICENSE=$project_license
+
+# Git Configuration (inherited from root .env)
+GIT_USER=$git_user
+GIT_MAIL=$git_mail
+
+EOF
+
+  # Write database configuration section
+  if [ -n "$db_type" ]; then
+    case "$db_type" in
+      postgres)
+        local postgres_host=$(grep POSTGRES_CONTAINER_NAME .env | cut -d= -f2)
+        local postgres_port=$(grep POSTGRES_PORT .env | cut -d= -f2)
+        cat >> "$env_file" << EOF
+# Database Configuration
 DB_TYPE=postgres
 DB_HOST=$postgres_host
 DB_PORT=5432
@@ -731,12 +765,12 @@ EXTERNAL_HOST=localhost
 EXTERNAL_PORT=$postgres_port
 EXTERNAL_JDBC_URL=jdbc:postgresql://localhost:$postgres_port/$app_name
 EOF
-      ;;
-    mariadb)
-      local mariadb_host=$(grep MARIADB_CONTAINER_NAME .env | cut -d= -f2)
-      local mariadb_port=$(grep MARIADB_PORT .env | cut -d= -f2)
-      cat > "$env_file" << EOF
-# Database Configuration for $app_name
+        ;;
+      mariadb)
+        local mariadb_host=$(grep MARIADB_CONTAINER_NAME .env | cut -d= -f2)
+        local mariadb_port=$(grep MARIADB_PORT .env | cut -d= -f2)
+        cat >> "$env_file" << EOF
+# Database Configuration
 DB_TYPE=mariadb
 DB_HOST=$mariadb_host
 DB_PORT=3306
@@ -752,11 +786,11 @@ EXTERNAL_HOST=localhost
 EXTERNAL_PORT=$mariadb_port
 EXTERNAL_JDBC_URL=jdbc:mariadb://localhost:$mariadb_port/$app_name
 EOF
-      ;;
-    sqlite)
-      local sqlite_data_dir=$(grep SQLITE_DATA_DIR .env | cut -d= -f2)
-      cat > "$env_file" << EOF
-# Database Configuration for $app_name
+        ;;
+      sqlite)
+        local sqlite_data_dir=$(grep SQLITE_DATA_DIR .env | cut -d= -f2)
+        cat >> "$env_file" << EOF
+# Database Configuration
 DB_TYPE=sqlite
 DB_FILE=${app_name}.sqlite
 DB_PATH=/workspace/$sqlite_data_dir/${app_name}.sqlite
@@ -767,12 +801,40 @@ JDBC_URL=jdbc:sqlite:/workspace/$sqlite_data_dir/${app_name}.sqlite
 # Local File System Path
 LOCAL_DB_PATH=$sqlite_data_dir/${app_name}.sqlite
 EOF
-      ;;
-    *)
-      print_warn ".env file creation not implemented for type: $db_type"
-      return 1
-      ;;
-  esac
+        ;;
+      *)
+        print_warn ".env file creation not implemented for database type: $db_type"
+        # Still write empty database section
+        cat >> "$env_file" << EOF
+# Database Configuration (not configured)
+DB_TYPE=
+DB_HOST=
+DB_PORT=
+DB_NAME=
+DB_USER=
+DB_PASSWORD=
+
+# JDBC Connection String
+JDBC_URL=
+EOF
+        ;;
+    esac
+  else
+    # No database - write empty database configuration section
+    cat >> "$env_file" << EOF
+# Database Configuration (no database)
+DB_TYPE=
+DB_HOST=
+DB_PORT=
+DB_NAME=
+DB_USER=
+DB_PASSWORD=
+
+# JDBC Connection String
+JDBC_URL=
+EOF
+  fi
+
   print_info ".env file created: $env_file"
 }
 
@@ -1057,6 +1119,13 @@ create_webapp() {
     print_error "Failed to create webapp '$group_id'"
     exit 1
   fi
+
+  # Extract project version from pom.xml
+  local project_version=$(grep -m1 "<version>" "projects/$group_id/pom.xml" | sed 's/.*<version>\(.*\)<\/version>.*/\1/' | xargs)
+  if [ -z "$project_version" ]; then
+    project_version="1.0.0"  # Fallback if version extraction fails
+  fi
+
   # Create database and user for webapp if database type is specified
   if [ -n "$db_type" ]; then
     # Read password from .env if exists, otherwise use default 'secret'
@@ -1068,8 +1137,11 @@ create_webapp() {
       fi
     fi
     create_webapp_database "$app_name" "$db_type" "$db_password"
-    create_webapp_env_file "$group_id" "$app_name" "$db_type"
+    create_webapp_env_file "$group_id" "$app_name" "$db_type" "$project_version"
     initialize_database_data "$app_name" "$db_type" "$group_id"
+  else
+    # No database - create .env with empty database configuration
+    create_webapp_env_file "$group_id" "$app_name" "" "$project_version"
   fi
   print_info "Created: projects/$group_id/ with artifactId: $app_name"
   # Build and deploy the webapp

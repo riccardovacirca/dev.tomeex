@@ -150,32 +150,59 @@ push:
 	@git push
 	@echo "Push completed successfully"
 
-# Database CLI - Connect to application database or execute SQL file
+# Database CLI - Connect to application database or execute SQL/CSV file
 dbcli:
 	@if [ ! -f .env ]; then \
 		echo "Error: .env file not found"; \
 		exit 1; \
 	fi
 	@. ./.env && \
-	if [ -n "$(load)" ]; then \
-		if [ ! -f "$(load)" ]; then \
-			echo "Error: SQL file not found: $(load)"; \
+	if [ -n "$(f)" ]; then \
+		if [ ! -f "$(f)" ]; then \
+			echo "Error: File not found: $(f)"; \
 			exit 1; \
 		fi; \
-		if [ "$$DB_TYPE" = "postgres" ]; then \
-			echo "Loading SQL file into PostgreSQL database: $$DB_NAME"; \
-			PGPASSWORD=$$DB_PASSWORD psql -h $$DB_HOST -p $$DB_PORT -U $$DB_USER -d $$DB_NAME -f "$(load)"; \
-		elif [ "$$DB_TYPE" = "mariadb" ]; then \
-			echo "Loading SQL file into MariaDB database: $$DB_NAME"; \
-			mysql -h $$DB_HOST -P $$DB_PORT -u $$DB_USER -p$$DB_PASSWORD $$DB_NAME < "$(load)"; \
-		elif [ "$$DB_TYPE" = "sqlite" ]; then \
-			echo "Loading SQL file into SQLite database: $$DB_PATH"; \
-			sqlite3 $$DB_PATH < "$(load)"; \
+		FILE_EXT=$$(echo "$(f)" | grep -o '\.[^.]*$$'); \
+		if [ "$$FILE_EXT" = ".csv" ]; then \
+			TABLE_NAME=$$(basename "$(f)" .csv); \
+			COLUMNS=$$(head -1 "$(f)" | sed 's/"//g' | sed 's/;/,/g'); \
+			if [ "$$DB_TYPE" = "postgres" ]; then \
+				echo "Loading CSV file into PostgreSQL table: $$TABLE_NAME"; \
+				echo "Columns: $$COLUMNS"; \
+				PGPASSWORD=$$DB_PASSWORD psql -h $$DB_HOST -p $$DB_PORT -U $$DB_USER -d $$DB_NAME -c "\\COPY $$TABLE_NAME ($$COLUMNS) FROM '$(f)' WITH (FORMAT CSV, HEADER true, DELIMITER ';', QUOTE '\\\"', NULL '\\\\N')"; \
+				echo "CSV file loaded successfully"; \
+			elif [ "$$DB_TYPE" = "mariadb" ]; then \
+				echo "Loading CSV file into MariaDB table: $$TABLE_NAME"; \
+				mysql -h $$DB_HOST -P $$DB_PORT -u $$DB_USER -p$$DB_PASSWORD $$DB_NAME -e "LOAD DATA LOCAL INFILE '$(f)' INTO TABLE $$TABLE_NAME FIELDS TERMINATED BY ';' ENCLOSED BY '\\\"' LINES TERMINATED BY '\\\\n' IGNORE 1 LINES;"; \
+				echo "CSV file loaded successfully"; \
+			elif [ "$$DB_TYPE" = "sqlite" ]; then \
+				echo "Loading CSV file into SQLite table: $$TABLE_NAME"; \
+				sqlite3 $$DB_PATH ".mode csv" ".separator ';'" ".import $(f) $$TABLE_NAME"; \
+				echo "CSV file loaded successfully"; \
+			else \
+				echo "Error: Unknown database type: $$DB_TYPE"; \
+				exit 1; \
+			fi; \
+		elif [ "$$FILE_EXT" = ".sql" ]; then \
+			if [ "$$DB_TYPE" = "postgres" ]; then \
+				echo "Loading SQL file into PostgreSQL database: $$DB_NAME"; \
+				PGPASSWORD=$$DB_PASSWORD psql -h $$DB_HOST -p $$DB_PORT -U $$DB_USER -d $$DB_NAME -f "$(f)"; \
+			elif [ "$$DB_TYPE" = "mariadb" ]; then \
+				echo "Loading SQL file into MariaDB database: $$DB_NAME"; \
+				mysql -h $$DB_HOST -P $$DB_PORT -u $$DB_USER -p$$DB_PASSWORD $$DB_NAME < "$(f)"; \
+			elif [ "$$DB_TYPE" = "sqlite" ]; then \
+				echo "Loading SQL file into SQLite database: $$DB_PATH"; \
+				sqlite3 $$DB_PATH < "$(f)"; \
+			else \
+				echo "Error: Unknown database type: $$DB_TYPE"; \
+				exit 1; \
+			fi; \
+			echo "SQL file loaded successfully"; \
 		else \
-			echo "Error: Unknown database type: $$DB_TYPE"; \
+			echo "Error: Unsupported file type: $$FILE_EXT"; \
+			echo "Supported: .sql, .csv"; \
 			exit 1; \
 		fi; \
-		echo "SQL file loaded successfully"; \
 	else \
 		if [ "$$DB_TYPE" = "postgres" ]; then \
 			echo "Connecting to PostgreSQL database: $$DB_NAME"; \
@@ -248,6 +275,52 @@ contextview:
 	@echo "    <param-value>\$${symbol_dollar}{catalina.base}/webapps/$(APP_NAME)/WEB-INF/contextviews</param-value>"
 	@echo "</context-param>"
 
+# Update project configuration
+update:
+	@echo "Updating project configuration..."
+	@if [ ! -f .env ]; then \
+		echo "Error: .env file not found"; \
+		exit 1; \
+	fi
+	@. ./.env && \
+	if [ -z "$$DB_TYPE" ] || [ -z "$$DB_NAME" ] || [ -z "$$DB_USER" ]; then \
+		echo "No database configuration found in .env, nothing to update"; \
+		exit 0; \
+	fi; \
+	if [ -z "$$DB_PASSWORD" ]; then \
+		echo "Error: DB_PASSWORD not found in .env"; \
+		exit 1; \
+	fi; \
+	echo "Updating $$DB_TYPE database password for user: $$DB_USER"; \
+	if [ "$$DB_TYPE" = "postgres" ]; then \
+		POSTGRES_CONTAINER=$$(grep "^POSTGRES_CONTAINER_NAME=" /workspace/.env | cut -d= -f2); \
+		POSTGRES_PASSWORD=$$(grep "^POSTGRES_PASSWORD=" /workspace/.env | cut -d= -f2); \
+		if [ -z "$$POSTGRES_CONTAINER" ] || [ -z "$$POSTGRES_PASSWORD" ]; then \
+			echo "Error: PostgreSQL configuration not found in /workspace/.env"; \
+			exit 1; \
+		fi; \
+		echo "Connecting to PostgreSQL..."; \
+		PGPASSWORD=$$POSTGRES_PASSWORD psql -h $$POSTGRES_CONTAINER -p 5432 -U postgres -d postgres -c "ALTER USER $$DB_USER WITH PASSWORD '$$DB_PASSWORD';" 2>/dev/null && \
+		echo "✓ Password updated successfully" || \
+		echo "✗ Failed to update password"; \
+	elif [ "$$DB_TYPE" = "mariadb" ]; then \
+		MARIADB_CONTAINER=$$(grep "^MARIADB_CONTAINER_NAME=" /workspace/.env | cut -d= -f2); \
+		MARIADB_ROOT_PASSWORD=$$(grep "^MARIADB_ROOT_PASSWORD=" /workspace/.env | cut -d= -f2); \
+		if [ -z "$$MARIADB_CONTAINER" ] || [ -z "$$MARIADB_ROOT_PASSWORD" ]; then \
+			echo "Error: MariaDB configuration not found in /workspace/.env"; \
+			exit 1; \
+		fi; \
+		echo "Connecting to MariaDB..."; \
+		mysql -h $$MARIADB_CONTAINER -P 3306 -u root -p$$MARIADB_ROOT_PASSWORD -e "ALTER USER '$$DB_USER'@'%' IDENTIFIED BY '$$DB_PASSWORD';" 2>/dev/null && \
+		echo "✓ Password updated successfully" || \
+		echo "✗ Failed to update password"; \
+	elif [ "$$DB_TYPE" = "sqlite" ]; then \
+		echo "SQLite does not use passwords, nothing to update"; \
+	else \
+		echo "Error: Unknown database type: $$DB_TYPE"; \
+		exit 1; \
+	fi
+
 # Display help
 help:
 	@echo "$(APP_NAME) Webapp - Available targets:"
@@ -265,7 +338,9 @@ help:
 	@echo "  git-safe      - Add project to Git safe.directory"
 	@echo "  push          - Git add, commit and push (requires m=\"message\")"
 	@echo "  dbcli         - Connect to application database"
-	@echo "  dbcli load=<file.sql> - Execute SQL file in database"
+	@echo "  dbcli f=<file.sql> - Execute SQL file in database"
+	@echo "  dbcli f=<table_name.csv> - Load CSV into table (filename = table name)"
+	@echo "  update        - Update project configuration (e.g., database password)"
 	@echo "  contextview   - Add ContextView functionality to this webapp"
 	@echo ""
 	@echo "  help          - Show this help message"
@@ -274,4 +349,4 @@ help:
 	@echo ""
 	@echo "For clean redeploy: make clean && make deploy"
 
-.PHONY: build release compile setup-database install deploy quick-deploy test test-verbose clean git-safe push dbcli contextview help
+.PHONY: build release compile setup-database install deploy quick-deploy test test-verbose clean git-safe push dbcli update contextview help
