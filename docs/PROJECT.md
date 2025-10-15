@@ -8,6 +8,37 @@ TomEEx is a Docker-based TomEE development environment for building Java web app
 
 **Key Architecture Principle**: Projects are organized by `groupId` (not `artifactId`) - this is critical when navigating directories.
 
+**Technology Stack**:
+- TomEE 9 (Jakarta EE 9+)
+- Java 17
+- Maven for build management
+- Docker for containerization
+- PostgreSQL/MariaDB/SQLite for database support
+
+## Quick Start
+
+```bash
+# 1. Initial setup (creates .env)
+./install.sh
+
+# 2. Complete setup with database
+./install.sh --postgres
+
+# 3. Create a new webapp
+make app id=com.example.myapp db=postgres
+
+# 4. Navigate to project and develop
+cd projects/com.example.myapp
+# Edit Java code in src/main/java/
+# Edit JSP/HTML in src/main/webapp/
+
+# 5. Deploy changes
+make
+
+# 6. Access your webapp
+# http://localhost:9292/myapp
+```
+
 ## Quick Reference
 
 **Most Common Tasks:**
@@ -40,6 +71,13 @@ make clean && make deploy
 - Logs: `logs/catalina.out` or `docker logs tomeex`
 - Container access: `docker exec -it tomeex bash`
 
+**Code Navigation:**
+When locating code, remember:
+- Project directory = `groupId` (NOT artifactId)
+- Example: `make app id=com.example.myapp` creates `projects/com.example.myapp/`
+- Within project: `src/main/java/com/example/myapp/` for Java sources
+- Database config: `projects/{groupId}/.env` and `META-INF/context-dev.xml`
+
 ## Core Commands
 
 ### Environment Setup
@@ -58,6 +96,19 @@ make clean && make deploy
 # Multiple databases can be installed
 ./install.sh --postgres --mariadb --sqlite
 ```
+
+**First Run Process:**
+1. First `./install.sh` creates `.env` file and exits
+2. Edit `.env` if needed (optional Git configuration)
+3. Run `./install.sh` again to complete setup
+4. Optionally add database support with flags
+
+**Environment Variables (.env):**
+- `CONTAINER_NAME` - TomEE container name (default: tomeex)
+- `HOST_PORT` - TomEE access port (default: 9292)
+- `POSTGRES_PORT` - PostgreSQL external port (default: 15432)
+- `MARIADB_PORT` - MariaDB external port (default: 13306)
+- `GIT_USER`, `GIT_MAIL` - Git configuration (optional)
 
 ### Project Management
 ```bash
@@ -127,12 +178,20 @@ All archetypes use:
 **Location:** `projects/dev.tomeex.tools/`
 
 This is a JAR library providing utility classes for TomEEx projects. See documentation:
-- `projects/dev.tomeex.tools/docs/Database.md` - Database utilities
+- `docs/tools/Database.md` - Database utilities (JNDI-based database abstraction with transaction support)
+- `docs/tools/JSON.md` - JSON utilities
 - `projects/dev.tomeex.tools/docs/File.md` - File manipulation utilities
 
 The library is built and installed to Maven local repo via `make` commands in its directory.
 
 **Important:** As of January 2025, TomEEx uses `dev.tomeex.tools.Database` as the standard database access layer. JDBI has been completely removed from all archetypes.
+
+**Key Features of Database class**:
+- JNDI datasource integration
+- Transaction management (begin, commit, rollback)
+- Prepared statement support
+- Memory-efficient cursors for large result sets
+- Multi-database support (PostgreSQL, MariaDB, SQLite)
 
 ### Example Projects in Repository
 
@@ -260,13 +319,26 @@ export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 # View logs
 docker logs tomeex
 tail -f logs/catalina.out
+
+# Check container status
+docker ps | grep tomeex
+
+# Restart container if needed
+docker restart tomeex
 ```
 
 **Key Paths in Container:**
-- `/workspace` - Mounted project directory
-- `/usr/local/tomee/webapps` - Deployed webapps
-- `/usr/local/tomee/conf` - TomEE configuration
-- `/usr/local/tomee/logs` - Server logs
+- `/workspace` - Mounted project directory (bidirectional sync with host)
+- `/usr/local/tomee/webapps` - Deployed webapps (volume-mounted from `webapps/`)
+- `/usr/local/tomee/conf` - TomEE configuration (volume-mounted from `conf/`)
+- `/usr/local/tomee/logs` - Server logs (volume-mounted from `logs/`)
+- `~/.m2/repository` - Maven local repository
+
+**Docker Network:**
+- Network name: `tomeex-net` (from .env)
+- All containers (TomEE, PostgreSQL, MariaDB) are on this network
+- Containers can communicate using container names as hostnames
+- Example: TomEE connects to PostgreSQL at `tomeex-postgres:5432`
 
 ## URLs and Access
 
@@ -410,7 +482,24 @@ When modifying archetypes:
 
 ## Troubleshooting
 
-### "Database already exists" error
+### Common Issues
+
+#### Container not starting
+```bash
+# Check if Docker is running
+docker info
+
+# Check for port conflicts
+lsof -i :9292  # or netstat -tulpn | grep 9292
+
+# Check container logs
+docker logs tomeex
+
+# Restart container
+docker restart tomeex
+```
+
+#### "Database already exists" error
 If you see user/database exists errors when creating webapps, the database may have been created but project generation failed. Remove manually:
 ```bash
 # PostgreSQL
@@ -424,11 +513,38 @@ DROP DATABASE myapp;
 DROP USER 'myapp'@'%';
 ```
 
-### WAR not deploying
+#### WAR not deploying
 - Check TomEE logs: `docker logs tomeex` or `tail -f logs/catalina.out`
 - Verify WAR was copied: `ls -lh webapps/`
 - Ensure no port conflicts: `docker ps`
 - Check container is running: `docker ps | grep tomeex`
+- Look for compilation errors in project: `cd projects/{groupId} && mvn clean package`
+
+#### Database connection failures
+```bash
+# Check database container is running
+docker ps | grep postgres  # or mariadb
+
+# Check network connectivity
+docker exec -it tomeex ping tomeex-postgres
+
+# Verify JNDI resource in META-INF/context.xml
+# Ensure DB_HOST in project .env matches container name
+```
+
+#### Maven build failures
+```bash
+# Inside container, ensure JAVA_HOME is set
+docker exec -it tomeex bash
+export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+mvn clean package
+
+# Clear Maven cache if needed
+rm -rf ~/.m2/repository
+
+# Reinstall dev.tomeex.tools if needed
+cd /workspace/projects/dev.tomeex.tools && make
+```
 
 ### Hot Reload / JNDI Issues
 **Symptom:** Database connection failures after multiple deployments with error: `ClassCastException: JNDI lookup returned IvmContext instead of DataSource`
