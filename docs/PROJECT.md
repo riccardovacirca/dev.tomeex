@@ -138,6 +138,9 @@ make archetypes
 ```bash
 # Commit and push changes
 make push m="commit message"
+
+# Pull changes from remote
+make pull
 ```
 
 ## Architecture
@@ -192,6 +195,16 @@ The library is built and installed to Maven local repo via `make` commands in it
 - Prepared statement support
 - Memory-efficient cursors for large result sets
 - Multi-database support (PostgreSQL, MariaDB, SQLite)
+
+**CRITICAL - Before Adding Java Dependencies:**
+- **ALWAYS check `dev.tomeex.tools` library FIRST** before importing external Java libraries
+- The tools library (`projects/dev.tomeex.tools/`) provides common utilities for:
+  - Database operations (JNDI-based abstraction)
+  - JSON parsing and manipulation
+  - File operations
+- Check documentation: `docs/tools/Database.md`, `docs/tools/JSON.md`, `projects/dev.tomeex.tools/docs/File.md`
+- Only add external dependencies if the required functionality is NOT available in tools.jar
+- This reduces dependency bloat and maintains consistency across projects
 
 ### Example Projects in Repository
 
@@ -251,6 +264,8 @@ make clean                # Clean build artifacts + remove from TomEE
 make test                 # Run unit tests
 make dbcli                # Connect to application database
 make dbcli f=file.sql     # Execute SQL file in database
+make dbcli f=table.csv    # Load CSV file into table (filename must match table name)
+make update               # Update database password from .env
 make contextview          # Add ContextView functionality to webapp
 make push m="message"     # Git add, commit, and push changes
 make help                 # Show all available targets
@@ -322,10 +337,19 @@ tail -f logs/catalina.out
 
 # Check container status
 docker ps | grep tomeex
-
-# Restart container if needed
-docker restart tomeex
 ```
+
+**IMPORTANT - Claude Code Sessions:**
+- **NEVER restart the container** (`docker restart tomeex`) during a Claude Code session
+- Claude Code runs inside the container, and restarting it will terminate the active session
+- All session context and conversation history will be lost
+- If container restart is absolutely necessary, inform the user first and let them decide
+- **We are already INSIDE the container** - no need to use `docker exec` to access it
+
+**Testing and Development Inside Container:**
+- For testing webapps with `curl`, use `localhost:8080` (internal TomEE port)
+- External access (from host) is via `localhost:9292` (mapped from container port 8080)
+- Example: `curl http://localhost:8080/myapp/api/endpoint`
 
 **Key Paths in Container:**
 - `/workspace` - Mounted project directory (bidirectional sync with host)

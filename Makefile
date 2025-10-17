@@ -111,7 +111,7 @@ list:
 					name=$$(basename "$$project"); \
 					groupId=$$(grep -m1 "<groupId>" "$$project/pom.xml" | sed 's/.*<groupId>\(.*\)<\/groupId>.*/\1/' | xargs); \
 					version=$$(grep -m1 "<version>" "$$project/pom.xml" | sed 's/.*<version>\(.*\)<\/version>.*/\1/' | xargs); \
-					printf "  %-20s (groupId: %-30s version: %s)\n" "$$name" "$$groupId" "$$version"; \
+					printf "  %-20s (version: %s)\n" "$$name" "$$version"; \
 				fi; \
 			fi; \
 		done; \
@@ -123,7 +123,7 @@ list:
 					name=$$(basename "$$project"); \
 					groupId=$$(grep -m1 "<groupId>" "$$project/pom.xml" | sed 's/.*<groupId>\(.*\)<\/groupId>.*/\1/' | xargs); \
 					version=$$(grep -m1 "<version>" "$$project/pom.xml" | sed 's/.*<version>\(.*\)<\/version>.*/\1/' | xargs); \
-					printf "  %-20s (groupId: %-30s version: %s)\n" "$$name" "$$groupId" "$$version"; \
+					printf "  %-20s (version: %s)\n" "$$name" "$$version"; \
 				fi; \
 			fi; \
 		done; \
