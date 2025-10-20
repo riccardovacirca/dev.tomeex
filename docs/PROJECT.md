@@ -162,6 +162,13 @@ make pull
 - Each project has its own `Makefile` and `README.md`
 - Projects are self-contained with build and deployment scripts
 
+**Documentation:**
+- `docs/PROJECT.md` - Source content for CLAUDE.md (synchronized with CLAUDE.md)
+- `docs/TOMEEX.md` - TomEE environment overview
+- `docs/SERVLET.md` - Jakarta Servlet development guide
+- `docs/tools/Database.md` - Database utility class reference (planned)
+- `docs/tools/JSON.md` - JSON utility class reference (planned)
+
 ### Maven Archetypes
 
 The repository contains 5 main archetypes:
@@ -176,44 +183,39 @@ All archetypes use:
 - **groupId:** `dev.tomeex.archetypes`
 - **version:** `1.0.0`
 
-### TomEEx Tools Library
+### Database Access Pattern
 
-**Location:** `projects/dev.tomeex.tools/`
+TomEEx projects use **JNDI datasource** as the standard database access layer. All database-enabled archetypes include JNDI configuration out of the box.
 
-This is a JAR library providing utility classes for TomEEx projects. See documentation:
-- `docs/tools/Database.md` - Database utilities (JNDI-based database abstraction with transaction support)
-- `docs/tools/JSON.md` - JSON utilities
-- `projects/dev.tomeex.tools/docs/File.md` - File manipulation utilities
-
-The library is built and installed to Maven local repo via `make` commands in its directory.
-
-**Important:** As of January 2025, TomEEx uses `dev.tomeex.tools.Database` as the standard database access layer. JDBI has been completely removed from all archetypes.
-
-**Key Features of Database class**:
-- JNDI datasource integration
-- Transaction management (begin, commit, rollback)
-- Prepared statement support
-- Memory-efficient cursors for large result sets
+**Standard Database Access:**
+- JNDI datasource integration via `java:comp/env/jdbc/MainDB`
+- Use Java standard `Connection`, `PreparedStatement`, `ResultSet` APIs
+- Transaction management through standard JDBC transactions
 - Multi-database support (PostgreSQL, MariaDB, SQLite)
 
-**CRITICAL - Before Adding Java Dependencies:**
-- **ALWAYS check `dev.tomeex.tools` library FIRST** before importing external Java libraries
-- The tools library (`projects/dev.tomeex.tools/`) provides common utilities for:
-  - Database operations (JNDI-based abstraction)
-  - JSON parsing and manipulation
-  - File operations
-- Check documentation: `docs/tools/Database.md`, `docs/tools/JSON.md`, `projects/dev.tomeex.tools/docs/File.md`
-- Only add external dependencies if the required functionality is NOT available in tools.jar
-- This reduces dependency bloat and maintains consistency across projects
+**Configuration Files:**
+- `META-INF/context-dev.xml` - Development JNDI datasource configuration
+- `META-INF/context-prod.xml` - Production JNDI datasource configuration
+- `.env` - Database credentials and connection details
+
+**Best Practices:**
+- Prefer JDBC over external ORM libraries to reduce dependency bloat
+- Use prepared statements for all SQL queries
+- Manage transactions explicitly with commit/rollback
+- Follow standard Jakarta EE patterns for database access
+
+**Note:** Documentation in `docs/tools/` describes planned utility classes. Current projects should use standard JDBC APIs directly.
 
 ### Example Projects in Repository
 
-**dev.tomeex.mpi** (`projects/dev.tomeex.mpi/`)
-- Master Patient Index (MPI) implementation
-- RESTful API with PostgreSQL database support
-- Complex database schema with stored procedures (`database/v6/`)
-- Example of production-ready webapp structure
-- Includes database migration scripts and dashboard utilities
+**dev.tomeex.qd** (`projects/dev.tomeex.qd/`)
+- RESTful API example with database support
+- Demonstrates standard webapp structure
+- Includes Makefile with build and deployment targets
+
+**com.hello** (`projects/com.hello/`)
+- Simple "Hello World" webapp example
+- Minimal configuration for quick reference
 
 ### ContextView Add-on Architecture
 
@@ -566,8 +568,8 @@ mvn clean package
 # Clear Maven cache if needed
 rm -rf ~/.m2/repository
 
-# Reinstall dev.tomeex.tools if needed
-cd /workspace/projects/dev.tomeex.tools && make
+# Rebuild archetypes if needed
+cd /workspace && make archetypes
 ```
 
 ### Hot Reload / JNDI Issues

@@ -276,6 +276,8 @@ start_container() {
     -v "${PROJECT_DIR}/logs:/usr/local/tomee/logs" \
     -v "${PROJECT_DIR}/work:/usr/local/tomee/work" \
     -v "${PROJECT_DIR}/temp:/usr/local/tomee/temp" \
+    -v /etc/localtime:/etc/localtime:ro \
+    -v /etc/timezone:/etc/timezone:ro \
     -e CATALINA_OPTS="-Xmx${HEAP_SIZE_MAX} -Xms${HEAP_SIZE_MIN}" \
     -e JAVA_HOME="/opt/java/openjdk" \
     "tomee:${TOMEE_VERSION}"
@@ -304,7 +306,7 @@ install_dev_tools() {
   if docker exec "${CONTAINER_NAME}" sh -c "
     apt-get update -qq > /dev/null 2>&1 && \
     apt-get install -y --no-install-recommends \
-      make openjdk-17-jdk-headless git maven wget curl rsync postgresql-client default-mysql-client sqlite3 > /dev/null 2>&1 && \
+      make openjdk-17-jdk-headless git maven wget curl rsync unzip postgresql-client default-mysql-client sqlite3 > /dev/null 2>&1 && \
     echo 'export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64' >> /root/.bashrc && \
     apt-get clean > /dev/null 2>&1 && \
     rm -rf /var/lib/apt/lists/*
