@@ -77,7 +77,11 @@ deploy: build
 	@echo "Deploying $(APP_NAME) to $(CONTAINER_NAME)..."
 	@rm -rf $(TOMEE_WEBAPPS)/$(APP_NAME)*
 	@cp target/$(APP_NAME).war $(TOMEE_WEBAPPS)/
-	@echo "Deployed: http://localhost:9292/$(APP_NAME)"
+	@echo ""
+	@echo "Deployed successfully!"
+	@echo "  External (host):      http://localhost:9292/$(APP_NAME)"
+	@echo "  Internal (container): http://localhost:8080/$(APP_NAME)"
+	@echo ""
 	@echo "Wait a few seconds for TomEE to extract and deploy the WAR file"
 
 # Quick incremental deployment using rsync (DISABLED - JNDI issues with hot reload)
@@ -250,6 +254,16 @@ dbcli:
 		fi; \
 	fi
 
+# Database initialization - Execute SQL file for database setup
+db:
+	@if [ ! -f database/${artifactId}.sql ]; then \
+		echo "Error: Database initialization file not found: database/${artifactId}.sql"; \
+		exit 1; \
+	fi
+	@echo "Initializing database with database/${artifactId}.sql..."
+	@$(MAKE) dbcli f=database/${artifactId}.sql
+	@echo "Database initialization complete"
+
 # Add ContextView functionality to this webapp
 contextview:
 	@echo "Adding ContextView functionality to $(APP_NAME)..."
@@ -369,6 +383,7 @@ help:
 	@echo "  dbcli         - Connect to application database"
 	@echo "  dbcli f=<file.sql> - Execute SQL file in database"
 	@echo "  dbcli f=<table_name.csv> - Load CSV into table (filename = table name)"
+	@echo "  db            - Initialize database (executes database/${artifactId}.sql)"
 	@echo "  update        - Update project configuration (e.g., database password)"
 	@echo "  contextview   - Add ContextView functionality to this webapp"
 	@echo ""
@@ -378,4 +393,4 @@ help:
 	@echo ""
 	@echo "For clean redeploy: make clean && make deploy"
 
-.PHONY: build release compile setup-database install deploy quick-deploy test test-verbose clean git-safe push pull dbcli update contextview help
+.PHONY: build release compile setup-database install deploy quick-deploy test test-verbose clean git-safe push pull dbcli db update contextview help

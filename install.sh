@@ -1012,15 +1012,15 @@ initialize_database_data() {
   local db_type="$2"
   local group_id="$3"
 
-  local sql_file="projects/$group_id/database/init-data-${db_type}.sql"
+  local sql_file="projects/$group_id/database/${app_name}.sql"
 
   # Check if SQL initialization file exists
   if [ ! -f "$sql_file" ]; then
-    print_info "No initialization SQL file found for $db_type, skipping data load"
+    print_info "No initialization SQL file found: ${app_name}.sql, skipping data load"
     return 0
   fi
 
-  print_info "Loading initial data from $sql_file..."
+  print_info "Loading initial data from ${app_name}.sql..."
 
   case "$db_type" in
     postgres)
@@ -1053,6 +1053,61 @@ initialize_database_data() {
       fi
       ;;
   esac
+}
+
+# Cleanup database SQL files - keep only the one matching db_type and rename it to {artifactId}.sql
+cleanup_database_sql_files() {
+  local group_id="$1"
+  local app_name="$2"
+  local db_type="$3"
+
+  local db_dir="projects/$group_id/database"
+
+  # Skip if no database directory
+  if [ ! -d "$db_dir" ]; then
+    return 0
+  fi
+
+  # Skip if no database type specified
+  if [ -z "$db_type" ]; then
+    return 0
+  fi
+
+  print_info "Cleaning up database SQL files..."
+
+  cd "$db_dir" || return 1
+
+  # Determine which file to keep based on database type
+  local keep_file=""
+  case "$db_type" in
+    postgres)
+      keep_file="init-data-postgres.sql"
+      rm -f init-data-mariadb.sql init-data-sqlite.sql
+      ;;
+    mariadb)
+      keep_file="init-data-mariadb.sql"
+      rm -f init-data-postgres.sql init-data-sqlite.sql
+      ;;
+    sqlite)
+      keep_file="init-data-sqlite.sql"
+      rm -f init-data-postgres.sql init-data-mariadb.sql
+      ;;
+    *)
+      print_warn "Unknown database type: $db_type, keeping all SQL files"
+      cd - > /dev/null
+      return 0
+      ;;
+  esac
+
+  # Rename the kept file to {artifactId}.sql
+  if [ -f "$keep_file" ]; then
+    mv "$keep_file" "${app_name}.sql"
+    print_info "Database file: ${app_name}.sql (for $db_type)"
+  else
+    print_warn "Expected SQL file not found: $keep_file"
+  fi
+
+  cd - > /dev/null
 }
 
 # Create new Maven webapp
@@ -1097,6 +1152,8 @@ create_webapp() {
       mv "$app_name" "$group_id"
     fi
     cd ..
+    # Cleanup SQL files - keep only the one for selected database type
+    cleanup_database_sql_files "$group_id" "$app_name" "$db_type"
   else
     # Install only the simple webapp archetype if needed
     ensure_archetype_installed "tomeex-app"
@@ -1153,7 +1210,10 @@ create_webapp() {
   cd - > /dev/null || exit 1
   # Show webapp URLs
   echo ""
-  print_info "Deployed: http://localhost:9292/$app_name"
+  print_info "Webapp deployed successfully!"
+  print_info "  External (host):      http://localhost:9292/$app_name"
+  print_info "  Internal (container): http://localhost:8080/$app_name"
+  echo ""
 }
 
 remove_webapp() {

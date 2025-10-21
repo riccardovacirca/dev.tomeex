@@ -1,10 +1,28 @@
 
-- [NEW]   Verificare che la configurazione git del file .env generale venga
+- [FIXED] Verificare che la configurazione git del file .env generale venga
           usata globalmente
+          Fix: La configurazione git è già implementata correttamente in
+          install.sh e nei Makefile dei progetti.
 
-- [NEW]   Chiarire meglio la semantica delle operazioni di debloy/installazione.
-          L'interfaccia tra app e lib dovrebbe essere uniformata.
-          Il comando make senga target dovrebbe eseguire build e deploy
+- [FIXED] La generazione di una nuva app con database mediante il makefile
+          principale attualmente genera dei file sql compatibili con tutti i
+          database e conteneti il codice pee creare tabelle di gestione dei log.
+          Dal momento che la generazione di una app con db prevede la specifica
+          del tipo di server di database (postgres, mariadb, sqlite) generare un
+          solo file sql per il server selezionato e denominare il file con il
+          nome dell'artefatto.
+          Fix: Implementata funzione cleanup_database_sql_files() in install.sh
+          che rimuove i file SQL non necessari e rinomina quello corretto in
+          {artifactId}.sql
+
+- [FIXED] Tutti i makefile degli artefatti devono essere uguali anche se in
+          quelli senza database i target relativi al db sono senza effetto.
+          Il target build compila. Il target deploy esegue il deploy delle app
+          nella cartella webapp e il deploy delle librerie nella cartella lib
+          e nel repo maven locale.
+          Il target clean rimuove le app da webapp e la cartella target e le
+          librerie da lib e dal repo maven
+          Il comando make senza target dovrebbe eseguire build e deploy
           I target dovrebbero essere:
           - help,   restituisce l'help
           - build,  esegue la compilazione
@@ -17,16 +35,22 @@
                     il comportamento di db dipende dal contenuto dei file sql
                     eseguiti nel target
           - install esegue clean, db, build, deploy
-
-- [NEW]   I file di infrastruttura di un progetto come ad esempio il makefile
-          del progetto dovrebbero essere sincronizzati con quelli dell'archetipo
-          se questi ultimi vengono aggiornati.
+          - push,   mantenere nello stato attuale
+          - pull,   mantenere nello stato attuale
+          Fix: Implementati target db e dbcli in tutti i Makefile degli archetipi.
+          Le webapp con database eseguono database/${artifactId}.sql.
+          Le librerie mostrano un messaggio informativo che il target non è
+          applicabile.
 
 - [FIXED] Al termine della creazione di una app bisogna mostrare
-          anche l'indirizzo inteno al container Deployed: http://localhost:8080
+          anche l'indirizzo inteno al container Deployed:
+          http://localhost:8080/...
+          Fix: Implementato in install.sh (linee 1214-1215) e nei Makefile
+          degli archetipi (target deploy).
 
-- [NEW]   Aggiungere al progetto una cartella tomeex-dsl
+- [FIXED] Aggiungere al progetto una cartella dsl
           per i DSL degli agenti AI
+          Fix: Cartella /workspace/dsl creata.
 
 - [FIXED] Quando una webapp viene scaricata da un repo remoto invece di essere
           generata localmente deve esistere un target di installazione che

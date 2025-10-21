@@ -151,6 +151,16 @@ pull:
 	@git pull
 	@echo "Pull completed successfully"
 
+# Database CLI - No direct database interaction for libraries
+dbcli:
+	@echo "Error: Libraries do not have direct database access"
+	@echo "Use database functionality through applications that depend on this library"
+
+# Database initialization - No-op for libraries
+db:
+	@echo "Error: Libraries do not initialize databases directly"
+	@echo "Database initialization should be done by applications using this library"
+
 # Check if library is available in local repo
 check-repo:
 	@echo "Checking if ${artifactId} is installed in local Maven repository:"
@@ -184,9 +194,11 @@ help:
 	@echo "  git-safe         - Add project to Git safe.directory"
 	@echo "  push             - Git add, commit and push (requires m=\"message\")"
 	@echo "  pull             - Git pull changes from remote repository"
+	@echo "  dbcli            - [Not available] Libraries don't access databases directly"
+	@echo "  db               - [Not available] Libraries don't initialize databases"
 	@echo "  check-repo       - Check if library is in local Maven repo"
 	@echo "  coordinates      - Show Maven dependency coordinates"
 	@echo ""
 	@echo "  help             - Show this help message"
 
-.PHONY: build compile test test-verbose install install-sources install-javadoc install-full clean docs git-safe push pull check-repo coordinates help
+.PHONY: build compile test test-verbose install install-sources install-javadoc install-full clean docs git-safe push pull dbcli db check-repo coordinates help
