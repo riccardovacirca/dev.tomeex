@@ -1,0 +1,170 @@
+# ARTIFACT_ID_PLACEHOLDER vRELEASE_VERSION_PLACEHOLDER
+
+Production release package for ARTIFACT_ID_PLACEHOLDER webapp.
+
+## Contents
+
+- `ARTIFACT_ID_PLACEHOLDER.war` - Production WAR file (built with `-P prod` profile)
+- `install.sh` - Docker deployment script
+- `database/ARTIFACT_ID_PLACEHOLDER.sql` - Database initialization script
+- `LICENSE.md` - License information
+- `README.md` - This file
+
+## Requirements
+
+- Docker installed and running
+- DB_TYPE_UPPER_PLACEHOLDER database server (for DB_TYPE_PLACEHOLDER support)
+- Available port (default: 8080)
+
+## Quick Start
+
+### 1. Extract the archive
+
+```bash
+tar -xzf ARTIFACT_ID_PLACEHOLDER-RELEASE_VERSION_PLACEHOLDER.tar.gz
+cd ARTIFACT_ID_PLACEHOLDER-RELEASE_VERSION_PLACEHOLDER
+```
+
+### 2. Deploy with Docker
+
+```bash
+./install.sh
+```
+
+The application will be available at: **http://localhost:8080/**
+
+### 3. Initialize Database
+
+The package includes `database/ARTIFACT_ID_PLACEHOLDER.sql` for database initialization.
+
+#### For DB_TYPE_PLACEHOLDER:
+
+\`\`\`bash
+DB_INIT_COMMAND_PLACEHOLDER
+\`\`\`
+
+## Installation Options
+
+### Basic deployment
+
+```bash
+./install.sh
+```
+
+### Custom port
+
+```bash
+./install.sh --port 9090
+```
+
+### With version suffix
+
+```bash
+./install.sh --vers RELEASE_VERSION_PLACEHOLDER
+```
+
+### Custom container name
+
+```bash
+./install.sh --name myapp-production
+```
+
+### Custom data volume
+
+```bash
+./install.sh --volume /data/myapp
+```
+
+### Combined options
+
+```bash
+./install.sh --vers RELEASE_VERSION_PLACEHOLDER --port 9090 --volume /data/myapp
+```
+
+## Database Configuration
+
+**Type:** DB_TYPE_PLACEHOLDER
+
+The application expects a JNDI datasource configuration. Update the database connection in your production environment:
+
+1. Create database and user
+2. Execute initialization script: `database/ARTIFACT_ID_PLACEHOLDER.sql`
+3. Configure JNDI datasource in TomEE or provide custom `context.xml`
+
+### Production context.xml example
+
+\`\`\`xml
+<?xml version="1.0" encoding="UTF-8"?>
+<Context reloadable="false">
+    <Resource name="jdbc/MainDB"
+              auth="Container"
+              type="javax.sql.DataSource"
+              driverClassName="DB_DRIVER_PLACEHOLDER"
+              url="DB_URL_PLACEHOLDER"
+              username="your_db_user"
+              password="your_db_password"
+              maxTotal="20"
+              maxIdle="10"
+              maxWaitMillis="10000" />
+</Context>
+\`\`\`
+
+## Docker Commands
+
+### View logs
+
+```bash
+docker logs ARTIFACT_ID_PLACEHOLDER
+```
+
+### Follow logs
+
+```bash
+docker logs -f ARTIFACT_ID_PLACEHOLDER
+```
+
+### Stop container
+
+```bash
+docker stop ARTIFACT_ID_PLACEHOLDER
+```
+
+### Start container
+
+```bash
+docker start ARTIFACT_ID_PLACEHOLDER
+```
+
+### Restart container
+
+```bash
+docker restart ARTIFACT_ID_PLACEHOLDER
+```
+
+### Remove container
+
+```bash
+docker rm -f ARTIFACT_ID_PLACEHOLDER
+```
+
+## Technical Details
+
+- **TomEE Version:** TOMEE_VERSION_PLACEHOLDER
+- **Java Version:** 17
+- **Database:** DB_TYPE_PLACEHOLDER
+- **Build Profile:** prod (reloadable=false)
+- **JNDI Datasource:** java:comp/env/jdbc/MainDB
+
+## License
+
+LICENSE_INFO_PLACEHOLDER
+
+## Support
+
+For issues and support, refer to the project documentation.
+
+---
+
+**Release:** RELEASE_VERSION_PLACEHOLDER
+**Build Date:** BUILD_DATE_PLACEHOLDER
+**Generated with:** TomEEx TOMEEX_VERSION_PLACEHOLDER

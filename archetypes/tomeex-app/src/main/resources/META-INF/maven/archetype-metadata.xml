@@ -35,6 +35,10 @@
             <includes>
                 <include>Makefile</include>
                 <include>README.md</include>
+                <include>LICENSE.md</include>
+                <include>install.sh</include>
+                <include>install.sh.template</include>
+                <include>README-RELEASE.md.template</include>
             </includes>
         </fileSet>
     </fileSets>

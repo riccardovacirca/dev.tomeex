@@ -20,29 +20,58 @@ build:
 	@echo "Build complete: target/$(APP_NAME).war"
 
 release:
-	@echo "Building $(APP_NAME) release package..."
+	@if [ -z "$(v)" ]; then \
+		echo "Error: version required"; \
+		echo "Usage: make release v=<version>"; \
+		echo "Example: make release v=1.0.0"; \
+		exit 1; \
+	fi
+	@echo "Building $(APP_NAME) release package v$(v)..."
 	@export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 && mvn package -q -DskipTests -P prod
 	@echo "Creating release distribution..."
 	@rm -rf release-dist
-	@mkdir -p release-dist
-	@cp target/$(APP_NAME).war release-dist/
-	@cp LICENSE.md release-dist/
-	@cp install.sh release-dist/
-	@chmod +x release-dist/install.sh
+	@mkdir -p release-dist/$(APP_NAME)-$(v)
+	@cp target/$(APP_NAME).war release-dist/$(APP_NAME)-$(v)/
+	@cp LICENSE.md release-dist/$(APP_NAME)-$(v)/
+	@echo "Generating install.sh from template..."
+	@TOMEE_VER=$$(grep "^TOMEE_VERSION=" /workspace/.env 2>/dev/null | cut -d= -f2); \
+	if [ -z "$$TOMEE_VER" ]; then TOMEE_VER="9-jre17-plume"; fi; \
+	sed -e "s|\$${ARTIFACT_ID}|$(APP_NAME)|g" \
+	    -e "s|\$${RELEASE_VERSION}|$(v)|g" \
+	    -e "s|\$${TOMEE_VERSION}|$$TOMEE_VER|g" \
+	    install.sh.template > release-dist/$(APP_NAME)-$(v)/install.sh
+	@chmod +x release-dist/$(APP_NAME)-$(v)/install.sh
+	@echo "Generating README.md from template..."
+	@TOMEE_VER=$$(grep "^TOMEE_VERSION=" /workspace/.env 2>/dev/null | cut -d= -f2); \
+	if [ -z "$$TOMEE_VER" ]; then TOMEE_VER="9-jre17-plume"; fi; \
+	BUILD_DATE=$$(date +"%Y-%m-%d %H:%M:%S"); \
+	LICENSE_INFO=$$(head -1 LICENSE.md 2>/dev/null || echo "See LICENSE.md"); \
+	sed -e "s|\$${ARTIFACT_ID}|$(APP_NAME)|g" \
+	    -e "s|\$${RELEASE_VERSION}|$(v)|g" \
+	    -e "s|\$${TOMEE_VERSION}|$$TOMEE_VER|g" \
+	    -e "s|\$${BUILD_DATE}|$$BUILD_DATE|g" \
+	    -e "s|\$${LICENSE_INFO}|$$LICENSE_INFO|g" \
+	    -e "s|\$${TOMEEX_VERSION}|1.0.0|g" \
+	    README-RELEASE.md.template > release-dist/$(APP_NAME)-$(v)/README.md
 	@echo "Packaging release archive..."
-	@tar -czf $(APP_NAME)-release.tar.gz -C release-dist .
+	@cd release-dist && tar -czf $(APP_NAME)-$(v).tar.gz $(APP_NAME)-$(v)
+	@mkdir -p /workspace/dist
+	@mv release-dist/$(APP_NAME)-$(v).tar.gz /workspace/dist/
 	@rm -rf release-dist
 	@echo ""
-	@echo "✓ Release package created: $(APP_NAME)-release.tar.gz"
+	@echo "✓ Release package created: /workspace/dist/$(APP_NAME)-$(v).tar.gz"
 	@echo ""
 	@echo "Contents:"
 	@echo "  - $(APP_NAME).war (production build)"
-	@echo "  - LICENSE.md"
 	@echo "  - install.sh (Docker deployment script)"
+	@echo "  - README.md (deployment instructions)"
+	@echo "  - LICENSE.md"
 	@echo ""
 	@echo "To deploy:"
-	@echo "  1. Extract: tar -xzf $(APP_NAME)-release.tar.gz"
-	@echo "  2. Run: ./install.sh --help"
+	@echo "  1. cd /workspace/dist"
+	@echo "  2. tar -xzf $(APP_NAME)-$(v).tar.gz"
+	@echo "  3. cd $(APP_NAME)-$(v)"
+	@echo "  4. ./install.sh --help"
 	@echo ""
 
 compile:
@@ -339,7 +368,7 @@ help:
 	@echo "  install       - First-time deployment (setup DB + deploy)"
 	@echo "  setup-database - Create database from .env configuration"
 	@echo "  build         - Build WAR file (dev profile with reloadable=true)"
-	@echo "  release       - Create production release package (tar.gz)"
+	@echo "  release v=<version> - Create production release package (requires version)"
 	@echo "  compile       - Compile source code"
 	@echo "  quick-deploy  - [DISABLED] Use 'make deploy' instead"
 	@echo "  test          - Run unit tests"

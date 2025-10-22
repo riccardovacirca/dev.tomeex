@@ -20,29 +20,121 @@ build:
 	@echo "Build complete: target/$(APP_NAME).war"
 
 release:
-	@echo "Building $(APP_NAME) release package..."
+	@if [ -z "$(v)" ]; then \
+		echo "Error: version required"; \
+		echo "Usage: make release v=<version>"; \
+		echo "Example: make release v=1.0.0"; \
+		exit 1; \
+	fi
+	@echo "Building $(APP_NAME) release package v$(v)..."
 	@export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 && mvn package -q -DskipTests -P prod
 	@echo "Creating release distribution..."
 	@rm -rf release-dist
-	@mkdir -p release-dist
-	@cp target/$(APP_NAME).war release-dist/
-	@cp LICENSE.md release-dist/
-	@cp install.sh release-dist/
-	@chmod +x release-dist/install.sh
+	@mkdir -p release-dist/$(APP_NAME)-$(v)
+	@mkdir -p release-dist/$(APP_NAME)-$(v)/database
+	@cp target/$(APP_NAME).war release-dist/$(APP_NAME)-$(v)/
+	@cp LICENSE.md release-dist/$(APP_NAME)-$(v)/
+	@if [ -f database/${artifactId}.sql ]; then \
+		cp database/${artifactId}.sql release-dist/$(APP_NAME)-$(v)/database/; \
+		if [ -f .env ]; then \
+			DB_TYPE_VAL=$$(grep "^DB_TYPE=" .env | cut -d= -f2); \
+			if [ "$$DB_TYPE_VAL" = "sqlite" ]; then \
+				echo "Generating fresh SQLite database for release..."; \
+				rm -f release-dist/$(APP_NAME)-$(v)/database/$(APP_NAME).db; \
+				sqlite3 release-dist/$(APP_NAME)-$(v)/database/$(APP_NAME).db < database/${artifactId}.sql; \
+				echo "  ✓ Fresh SQLite database created: database/$(APP_NAME).db"; \
+			fi; \
+		fi; \
+	fi
+	@echo "Generating install.sh from template..."
+	@if [ ! -f .env ]; then \
+		echo "Warning: .env not found, using defaults"; \
+		DB_TYPE_VAL="unknown"; \
+	else \
+		DB_TYPE_VAL=$$(grep "^DB_TYPE=" .env | cut -d= -f2); \
+		if [ -z "$$DB_TYPE_VAL" ]; then DB_TYPE_VAL="unknown"; fi; \
+	fi; \
+	TOMEE_VER=$$(grep "^TOMEE_VERSION=" /workspace/.env 2>/dev/null | cut -d= -f2); \
+	if [ -z "$$TOMEE_VER" ]; then TOMEE_VER="9-jre17-plume"; fi; \
+	sed -e "s|ARTIFACT_ID_PLACEHOLDER|$(APP_NAME)|g" \
+	    -e "s|RELEASE_VERSION_PLACEHOLDER|$(v)|g" \
+	    -e "s|TOMEE_VERSION_PLACEHOLDER|$$TOMEE_VER|g" \
+	    -e "s|DB_TYPE_PLACEHOLDER|$$DB_TYPE_VAL|g" \
+	    install.sh.template > release-dist/$(APP_NAME)-$(v)/install.sh
+	@chmod +x release-dist/$(APP_NAME)-$(v)/install.sh
+	@echo "Generating README.md from template..."
+	@if [ ! -f .env ]; then \
+		DB_TYPE_VAL="unknown"; \
+		DB_TYPE_UPPER="Unknown"; \
+		DB_DRIVER="unknown"; \
+		DB_URL="jdbc:unknown://localhost/dbname"; \
+		DB_INIT_COMMAND="# Database initialization command"; \
+	else \
+		DB_TYPE_VAL=$$(grep "^DB_TYPE=" .env | cut -d= -f2); \
+		if [ -z "$$DB_TYPE_VAL" ]; then DB_TYPE_VAL="unknown"; fi; \
+		case "$$DB_TYPE_VAL" in \
+			postgres) \
+				DB_TYPE_UPPER="PostgreSQL"; \
+				DB_DRIVER="org.postgresql.Driver"; \
+				DB_URL="jdbc:postgresql://db-host:5432/dbname"; \
+				DB_INIT_COMMAND="psql -h db-host -U db-user -d dbname -f database/$(APP_NAME).sql"; \
+				;; \
+			mariadb) \
+				DB_TYPE_UPPER="MariaDB"; \
+				DB_DRIVER="org.mariadb.jdbc.Driver"; \
+				DB_URL="jdbc:mariadb://db-host:3306/dbname"; \
+				DB_INIT_COMMAND="mysql -h db-host -u db-user -p dbname < database/$(APP_NAME).sql"; \
+				;; \
+			sqlite) \
+				DB_TYPE_UPPER="SQLite"; \
+				DB_DRIVER="org.sqlite.JDBC"; \
+				DB_URL="jdbc:sqlite:/path/to/database.db"; \
+				DB_INIT_COMMAND="sqlite3 /path/to/database.db < database/$(APP_NAME).sql"; \
+				;; \
+			*) \
+				DB_TYPE_UPPER="Unknown"; \
+				DB_DRIVER="unknown"; \
+				DB_URL="jdbc:unknown://localhost/dbname"; \
+				DB_INIT_COMMAND="# Database initialization command"; \
+				;; \
+		esac; \
+	fi; \
+	TOMEE_VER=$$(grep "^TOMEE_VERSION=" /workspace/.env 2>/dev/null | cut -d= -f2); \
+	if [ -z "$$TOMEE_VER" ]; then TOMEE_VER="9-jre17-plume"; fi; \
+	BUILD_DATE=$$(date +"%Y-%m-%d %H:%M:%S"); \
+	LICENSE_INFO=$$(head -1 LICENSE.md 2>/dev/null || echo "See LICENSE.md"); \
+	sed -e "s|ARTIFACT_ID_PLACEHOLDER|$(APP_NAME)|g" \
+	    -e "s|RELEASE_VERSION_PLACEHOLDER|$(v)|g" \
+	    -e "s|TOMEE_VERSION_PLACEHOLDER|$$TOMEE_VER|g" \
+	    -e "s|DB_TYPE_PLACEHOLDER|$$DB_TYPE_VAL|g" \
+	    -e "s|DB_TYPE_UPPER_PLACEHOLDER|$$DB_TYPE_UPPER|g" \
+	    -e "s|DB_DRIVER_PLACEHOLDER|$$DB_DRIVER|g" \
+	    -e "s|DB_URL_PLACEHOLDER|$$DB_URL|g" \
+	    -e "s|DB_INIT_COMMAND_PLACEHOLDER|$$DB_INIT_COMMAND|g" \
+	    -e "s|BUILD_DATE_PLACEHOLDER|$$BUILD_DATE|g" \
+	    -e "s|LICENSE_INFO_PLACEHOLDER|$$LICENSE_INFO|g" \
+	    -e "s|TOMEEX_VERSION_PLACEHOLDER|1.0.0|g" \
+	    README-RELEASE.md.template > release-dist/$(APP_NAME)-$(v)/README.md
 	@echo "Packaging release archive..."
-	@tar -czf $(APP_NAME)-release.tar.gz -C release-dist .
+	@cd release-dist && tar -czf $(APP_NAME)-$(v).tar.gz $(APP_NAME)-$(v)
+	@mkdir -p /workspace/dist
+	@mv release-dist/$(APP_NAME)-$(v).tar.gz /workspace/dist/
 	@rm -rf release-dist
 	@echo ""
-	@echo "✓ Release package created: $(APP_NAME)-release.tar.gz"
+	@echo "✓ Release package created: /workspace/dist/$(APP_NAME)-$(v).tar.gz"
 	@echo ""
 	@echo "Contents:"
 	@echo "  - $(APP_NAME).war (production build)"
-	@echo "  - LICENSE.md"
 	@echo "  - install.sh (Docker deployment script)"
+	@echo "  - database/$(APP_NAME).sql (database initialization)"
+	@echo "  - README.md (deployment instructions)"
+	@echo "  - LICENSE.md"
 	@echo ""
 	@echo "To deploy:"
-	@echo "  1. Extract: tar -xzf $(APP_NAME)-release.tar.gz"
-	@echo "  2. Run: ./install.sh --help"
+	@echo "  1. cd /workspace/dist"
+	@echo "  2. tar -xzf $(APP_NAME)-$(v).tar.gz"
+	@echo "  3. cd $(APP_NAME)-$(v)"
+	@echo "  4. ./install.sh --help"
 	@echo ""
 
 compile:
@@ -371,7 +463,7 @@ help:
 	@echo "  install       - First-time deployment (setup DB + deploy)"
 	@echo "  setup-database - Create database from .env configuration"
 	@echo "  build         - Build WAR file (dev profile with reloadable=true)"
-	@echo "  release       - Create production release package (tar.gz)"
+	@echo "  release v=<version> - Create production release package (requires version)"
 	@echo "  compile       - Compile source code"
 	@echo "  quick-deploy  - [DISABLED] Use 'make deploy' instead"
 	@echo "  test          - Run unit tests"

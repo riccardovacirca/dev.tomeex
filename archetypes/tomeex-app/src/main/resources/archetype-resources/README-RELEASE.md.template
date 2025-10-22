@@ -1,0 +1,128 @@
+# ${ARTIFACT_ID} v${RELEASE_VERSION}
+
+Production release package for ${ARTIFACT_ID} webapp.
+
+## Contents
+
+- `${ARTIFACT_ID}.war` - Production WAR file (built with `-P prod` profile)
+- `install.sh` - Docker deployment script
+- `LICENSE.md` - License information
+- `README.md` - This file
+
+## Requirements
+
+- Docker installed and running
+- Available port (default: 8080)
+
+## Quick Start
+
+### 1. Extract the archive
+
+```bash
+tar -xzf ${ARTIFACT_ID}-${RELEASE_VERSION}.tar.gz
+cd ${ARTIFACT_ID}-${RELEASE_VERSION}
+```
+
+### 2. Deploy with Docker
+
+```bash
+./install.sh
+```
+
+The application will be available at: **http://localhost:8080/**
+
+## Installation Options
+
+### Basic deployment
+
+```bash
+./install.sh
+```
+
+### Custom port
+
+```bash
+./install.sh --port 9090
+```
+
+### With version suffix
+
+```bash
+./install.sh --vers ${RELEASE_VERSION}
+```
+
+### Custom container name
+
+```bash
+./install.sh --name myapp-production
+```
+
+### Custom data volume
+
+```bash
+./install.sh --volume /data/myapp
+```
+
+### Combined options
+
+```bash
+./install.sh --vers ${RELEASE_VERSION} --port 9090 --volume /data/myapp
+```
+
+## Docker Commands
+
+### View logs
+
+```bash
+docker logs ${ARTIFACT_ID}
+```
+
+### Follow logs
+
+```bash
+docker logs -f ${ARTIFACT_ID}
+```
+
+### Stop container
+
+```bash
+docker stop ${ARTIFACT_ID}
+```
+
+### Start container
+
+```bash
+docker start ${ARTIFACT_ID}
+```
+
+### Restart container
+
+```bash
+docker restart ${ARTIFACT_ID}
+```
+
+### Remove container
+
+```bash
+docker rm -f ${ARTIFACT_ID}
+```
+
+## Technical Details
+
+- **TomEE Version:** ${TOMEE_VERSION}
+- **Java Version:** 17
+- **Build Profile:** prod (reloadable=false)
+
+## License
+
+${LICENSE_INFO}
+
+## Support
+
+For issues and support, refer to the project documentation.
+
+---
+
+**Release:** ${RELEASE_VERSION}
+**Build Date:** ${BUILD_DATE}
+**Generated with:** TomEEx ${TOMEEX_VERSION}

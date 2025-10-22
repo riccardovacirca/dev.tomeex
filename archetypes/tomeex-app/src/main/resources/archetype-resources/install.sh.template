@@ -1,0 +1,216 @@
+#!/bin/sh
+
+# -----------------------------
+# ARTIFACT_ID_PLACEHOLDER vRELEASE_VERSION_PLACEHOLDER
+# Production Deployment Script
+# -----------------------------
+
+WAR_FILE="ARTIFACT_ID_PLACEHOLDER.war"
+HOST_PORT="8080"
+HOST_VOLUME="./data"
+CONTAINER_NAME="ARTIFACT_ID_PLACEHOLDER"
+BASE_IMAGE="tomee:TOMEE_VERSION_PLACEHOLDER"
+VERSION=""
+DOCKER_NETWORK=""
+
+# -----------------------------
+# Parsing parametri
+# -----------------------------
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --vers)
+      VERSION="$2"
+      shift 2
+      ;;
+    --port)
+      HOST_PORT="$2"
+      shift 2
+      ;;
+    --volume)
+      HOST_VOLUME="$2"
+      shift 2
+      ;;
+    --name)
+      CONTAINER_NAME="$2"
+      shift 2
+      ;;
+    --network|--net)
+      DOCKER_NETWORK="$2"
+      shift 2
+      ;;
+    --help|-h)
+      cat << EOF
+ARTIFACT_ID_PLACEHOLDER vRELEASE_VERSION_PLACEHOLDER - Production Deployment
+
+USAGE:
+    ./install.sh [OPTIONS]
+
+OPTIONS:
+    --vers <version>     Set version suffix for container name
+    --port <port>        Host port (default: 8080)
+    --volume <path>      Data volume path (default: ./data)
+    --name <name>        Container name (default: ARTIFACT_ID_PLACEHOLDER)
+    --network <network>  Docker network (optional)
+    --net <network>      Alias for --network
+    --help, -h           Show this help
+
+EXAMPLES:
+    ./install.sh
+    ./install.sh --vers 1.0.0 --port 9090
+    ./install.sh --name myapp-prod --volume /data/myapp
+    ./install.sh --network myapp-net --port 8080
+    ./install.sh --vers 1.0.0 --port 9090 --network myapp-net
+
+REQUIREMENTS:
+    - Docker installed and running
+    - Port available (default: 8080)
+
+CONTAINER:
+    Name: ARTIFACT_ID_PLACEHOLDER[-VERSION]
+    Image: tomee:TOMEE_VERSION_PLACEHOLDER
+    URL: http://localhost:8080/
+
+EOF
+      exit 0
+      ;;
+    *)
+      echo "Parametro non riconosciuto: $1"
+      echo "Use --help per maggiori informazioni"
+      exit 1
+      ;;
+  esac
+done
+
+# Aggiungi versione al nome del container se specificata
+if [ -n "$VERSION" ]; then
+  CONTAINER_NAME="${CONTAINER_NAME}-${VERSION}"
+  WAR_BASENAME="$(basename "$WAR_FILE" .war)-${VERSION}.war"
+else
+  WAR_BASENAME="$(basename "$WAR_FILE")"
+fi
+
+# -----------------------------
+# Controlli minimi
+# -----------------------------
+if [ ! -f "$WAR_FILE" ]; then
+  echo "Errore: file WAR '$WAR_FILE' non trovato!"
+  exit 1
+fi
+
+# Verifica Docker
+if ! command -v docker > /dev/null 2>&1; then
+  echo "Errore: Docker non installato"
+  exit 1
+fi
+
+if ! docker info > /dev/null 2>&1; then
+  echo "Errore: Docker daemon non in esecuzione"
+  exit 1
+fi
+
+mkdir -p "$HOST_VOLUME"
+
+# Crea Docker network se specificato e non esiste
+if [ -n "$DOCKER_NETWORK" ]; then
+  if ! docker network inspect "$DOCKER_NETWORK" > /dev/null 2>&1; then
+    echo "Creazione Docker network '$DOCKER_NETWORK'..."
+    docker network create "$DOCKER_NETWORK" || {
+      echo "Errore: Impossibile creare Docker network '$DOCKER_NETWORK'"
+      exit 1
+    }
+    echo "✓ Network '$DOCKER_NETWORK' creata con successo"
+  else
+    echo "Network '$DOCKER_NETWORK' già esistente"
+  fi
+fi
+
+# -----------------------------
+# Crea Dockerfile temporaneo
+# -----------------------------
+DOCKERFILE=$(mktemp)
+cat > "$DOCKERFILE" <<DOCKERFILE_END
+FROM $BASE_IMAGE
+RUN rm -rf /usr/local/tomee/webapps/ROOT /usr/local/tomee/webapps/ROOT.war
+COPY $WAR_BASENAME /usr/local/tomee/webapps/ROOT.war
+VOLUME /usr/local/tomee/data
+DOCKERFILE_END
+
+# -----------------------------
+# Prepara build context
+# -----------------------------
+BUILD_DIR=$(mktemp -d)
+cp "$WAR_FILE" "$BUILD_DIR/$WAR_BASENAME"
+
+# -----------------------------
+# Verifica container esistente
+# -----------------------------
+if docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
+  echo "Container '$CONTAINER_NAME' già esistente"
+  echo -n "Rimuovere il container esistente? [y/N] "
+  read -r response
+  if [ "$response" = "y" ] || [ "$response" = "Y" ]; then
+    echo "Rimozione container esistente..."
+    docker stop "$CONTAINER_NAME" 2>/dev/null || true
+    docker rm "$CONTAINER_NAME" 2>/dev/null || true
+  else
+    echo "Deployment annullato"
+    rm -rf "$DOCKERFILE" "$BUILD_DIR"
+    exit 1
+  fi
+fi
+
+# -----------------------------
+# Build e run container
+# -----------------------------
+echo ""
+echo "==================================================================="
+echo "  Deploying ARTIFACT_ID_PLACEHOLDER vRELEASE_VERSION_PLACEHOLDER"
+echo "==================================================================="
+echo "  Container:   $CONTAINER_NAME"
+echo "  Image:       $BASE_IMAGE"
+echo "  Port:        $HOST_PORT"
+echo "  Volume:      $HOST_VOLUME"
+if [ -n "$DOCKER_NETWORK" ]; then
+  echo "  Network:     $DOCKER_NETWORK"
+fi
+echo "==================================================================="
+echo ""
+
+docker build -t "$CONTAINER_NAME" -f "$DOCKERFILE" "$BUILD_DIR"
+
+# Prepara argomenti network
+NETWORK_ARG=""
+if [ -n "$DOCKER_NETWORK" ]; then
+  NETWORK_ARG="--network $DOCKER_NETWORK"
+fi
+
+docker run -d \
+  --name "$CONTAINER_NAME" \
+  $NETWORK_ARG \
+  -p "$HOST_PORT":8080 \
+  -v "$HOST_VOLUME":/usr/local/tomee/data \
+  --restart=unless-stopped \
+  "$CONTAINER_NAME"
+
+echo ""
+echo "✓ Deployment completato con successo!"
+echo ""
+echo "Application URL: http://localhost:$HOST_PORT/"
+echo "Container name:  $CONTAINER_NAME"
+echo "Volume montato:  $HOST_VOLUME -> /usr/local/tomee/data"
+echo ""
+echo "Attendere 10-30 secondi per il deployment dell'applicazione"
+echo ""
+echo "Comandi utili:"
+echo "  docker logs $CONTAINER_NAME           # Visualizza logs"
+echo "  docker logs -f $CONTAINER_NAME        # Segui logs in tempo reale"
+echo "  docker stop $CONTAINER_NAME           # Ferma container"
+echo "  docker start $CONTAINER_NAME          # Avvia container"
+echo "  docker restart $CONTAINER_NAME        # Riavvia container"
+echo "  docker rm -f $CONTAINER_NAME          # Rimuovi container"
+echo ""
+
+# -----------------------------
+# Pulizia temporanei
+# -----------------------------
+rm -rf "$DOCKERFILE" "$BUILD_DIR"
