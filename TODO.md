@@ -63,3 +63,41 @@
 - [FIXED] Quick deploy non funziona
 
 - [FIXED] La libreria tools non è documentata
+
+- [FIXED] MariaDB startup timeout durante install.sh --mariadb
+          Il comando mysqladmin ping falliva senza credenziali causando timeout
+          di 60 secondi prima di mostrare errore spurio.
+          Fix: Aggiunta autenticazione root al comando mysqladmin ping in
+          wait_for_mariadb() (install.sh linee 490-502). Ora usa:
+          mysqladmin ping -uroot -p"${MARIADB_ROOT_PASSWORD}" --silent
+
+- [FIXED] SQLite database location non portabile e non compatibile con production
+          I database SQLite venivano creati in /workspace/sqlite-data/ che è
+          specifico per sviluppo e non segue gli standard Linux.
+          Fix: Cambiata posizione in /var/lib/tomee/sqlite/ che:
+          - Segue Linux FHS (Filesystem Hierarchy Standard)
+          - È compatibile con tutte le distro (Ubuntu, Alpine, etc.)
+          - È isolata dal codice applicativo
+          - Può essere montata come volume in produzione
+          Modificati: .env, install.sh, archetipi context*.xml, docs/PROJECT.md
+
+- [FIXED] Migrazione database SQLite esistenti e cleanup directory obsoleta
+          Dopo il cambio di posizione dei database SQLite da /workspace/sqlite-data/
+          a /var/lib/tomee/sqlite/, i progetti esistenti dovevano essere aggiornati.
+          Fix: Operazioni eseguite:
+          - Aggiornato dev.tomeex.qd (.env e context*.xml files)
+          - Migrato database qd.sqlite alla nuova posizione
+          - Aggiornata documentazione (SETUP.md, CLAUDE.md)
+          - Verificata procedura di rimozione database con nuova posizione
+          - Rimossa directory obsoleta /workspace/sqlite-data/
+          Risultato: Tutti i database SQLite ora esclusivamente in /var/lib/tomee/sqlite/
+
+- [FIXED] Directory SQLite non creata automaticamente durante installazione framework
+          La directory /var/lib/tomee/sqlite/ veniva creata solo quando si generava
+          la prima webapp con database SQLite, causando potenziali errori.
+          Fix: Aggiunta chiamata a create_sqlite_directories() nel flusso principale
+          di installazione (install.sh linea 1625), subito dopo wait_for_tomee().
+          La directory viene ora creata automaticamente all'avvio del container TomEE,
+          indipendentemente dalla creazione di webapp SQLite.
+          Risultato: Path di sistema sempre disponibile, creazione webapp SQLite
+          semplificata senza necessità di gestione directory.

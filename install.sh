@@ -489,8 +489,9 @@ start_mariadb_container() {
 
 wait_for_mariadb() {
   MARIADB_CONTAINER_NAME=$(grep MARIADB_CONTAINER_NAME .env | cut -d= -f2)
+  MARIADB_ROOT_PASSWORD=$(grep MARIADB_ROOT_PASSWORD .env | cut -d= -f2)
   for attempt in $(seq 1 30); do
-    if docker exec "${MARIADB_CONTAINER_NAME}" mysqladmin ping -h localhost > /dev/null 2>&1; then
+    if docker exec "${MARIADB_CONTAINER_NAME}" mysqladmin ping -h localhost -uroot -p"${MARIADB_ROOT_PASSWORD}" --silent > /dev/null 2>&1; then
       print_info "MariaDB is ready"
       return 0
     fi
@@ -581,23 +582,30 @@ purge_mariadb() {
 
 create_sqlite_directories() {
   SQLITE_DATA_DIR=$(grep SQLITE_DATA_DIR .env | cut -d= -f2)
-  mkdir -p "$SQLITE_DATA_DIR"
+
+  # Create directory (works both inside and outside container)
+  if [ -d "$SQLITE_DATA_DIR" ]; then
+    print_info "SQLite data directory already exists: $SQLITE_DATA_DIR"
+  else
+    print_info "Creating SQLite data directory: $SQLITE_DATA_DIR"
+    mkdir -p "$SQLITE_DATA_DIR"
+    chmod 755 "$SQLITE_DATA_DIR"
+    print_info "SQLite directory created successfully"
+  fi
 }
 
 install_sqlite_in_container() {
-  CONTAINER_NAME=$(grep "^CONTAINER_NAME=" .env | cut -d= -f2)
-  # Check if SQLite3 is already installed
-  if docker exec "${CONTAINER_NAME}" which sqlite3 > /dev/null 2>&1; then
-    print_info "SQLite3 already installed in container"
+  # Check if SQLite3 is already installed (works both inside and outside container)
+  if command -v sqlite3 > /dev/null 2>&1; then
+    print_info "SQLite3 already installed"
     return 0
   fi
-  print_info "Installing SQLite3 in TomEE container..."
-  if docker exec "${CONTAINER_NAME}" sh -c "
-    apt-get update -qq > /dev/null 2>&1 && \
-    apt-get install -y --no-install-recommends sqlite3 > /dev/null 2>&1 && \
-    apt-get clean > /dev/null 2>&1 && \
-    rm -rf /var/lib/apt/lists/*
-  " 2>/dev/null; then
+
+  print_info "Installing SQLite3..."
+  if apt-get update -qq > /dev/null 2>&1 && \
+     apt-get install -y --no-install-recommends sqlite3 > /dev/null 2>&1 && \
+     apt-get clean > /dev/null 2>&1 && \
+     rm -rf /var/lib/apt/lists/* 2>/dev/null; then
     print_info "SQLite3 installed successfully"
   else
     print_warn "SQLite3 installation may have failed"
@@ -611,19 +619,19 @@ setup_sqlite() {
   install_sqlite_in_container
   SQLITE_DATABASE=$(grep SQLITE_DATABASE .env | cut -d= -f2)
   SQLITE_DATA_DIR=$(grep SQLITE_DATA_DIR .env | cut -d= -f2)
-  CONTAINER_NAME=$(grep "^CONTAINER_NAME=" .env | cut -d= -f2)
   # Create SQLite database file
   print_info "Creating SQLite database..."
   touch "${SQLITE_DATA_DIR}/${SQLITE_DATABASE}"
+  chmod 644 "${SQLITE_DATA_DIR}/${SQLITE_DATABASE}"
   # Initialize database with a simple test table
-  SQLITE_PATH="/workspace/${SQLITE_DATA_DIR}/${SQLITE_DATABASE}"
-  docker exec "${CONTAINER_NAME}" sqlite3 "$SQLITE_PATH" "CREATE TABLE IF NOT EXISTS test (id INTEGER PRIMARY KEY, name TEXT);"
+  SQLITE_PATH="${SQLITE_DATA_DIR}/${SQLITE_DATABASE}"
+  sqlite3 "$SQLITE_PATH" "CREATE TABLE IF NOT EXISTS test (id INTEGER PRIMARY KEY, name TEXT);" 2>/dev/null || true
   echo ""
   print_info "=== SQLite Setup Complete ==="
   print_info "Database: ${SQLITE_DATABASE}"
   print_info "Location: ${SQLITE_DATA_DIR}/${SQLITE_DATABASE}"
-  print_info "JDBC URL: jdbc:sqlite:/workspace/${SQLITE_DATA_DIR}/${SQLITE_DATABASE}"
-  print_info "Access from container: sqlite3 /workspace/${SQLITE_DATA_DIR}/${SQLITE_DATABASE}"
+  print_info "JDBC URL: jdbc:sqlite:${SQLITE_DATA_DIR}/${SQLITE_DATABASE}"
+  print_info "Access from container: sqlite3 ${SQLITE_DATA_DIR}/${SQLITE_DATABASE}"
   echo ""
 }
 
@@ -795,13 +803,13 @@ EOF
 # Database Configuration
 DB_TYPE=sqlite
 DB_FILE=${app_name}.sqlite
-DB_PATH=/workspace/$sqlite_data_dir/${app_name}.sqlite
+DB_PATH=${sqlite_data_dir}/${app_name}.sqlite
 
 # JDBC Connection String
-JDBC_URL=jdbc:sqlite:/workspace/$sqlite_data_dir/${app_name}.sqlite
+JDBC_URL=jdbc:sqlite:${sqlite_data_dir}/${app_name}.sqlite
 
 # Local File System Path
-LOCAL_DB_PATH=$sqlite_data_dir/${app_name}.sqlite
+LOCAL_DB_PATH=${sqlite_data_dir}/${app_name}.sqlite
 EOF
         ;;
       *)
@@ -936,9 +944,11 @@ create_sqlite_webapp_database() {
   print_info "Creating SQLite database for webapp '$app_name'..."
   # Create directory if it doesn't exist
   mkdir -p "${sqlite_data_dir}"
-  # Create and initialize database with a simple test table
+  chmod 755 "${sqlite_data_dir}"
+  # Create database file
   local sqlite_path="${sqlite_data_dir}/${app_name}.sqlite"
-  sqlite3 "$sqlite_path" "CREATE TABLE IF NOT EXISTS test (id INTEGER PRIMARY KEY, name TEXT);" 2>/dev/null
+  touch "$sqlite_path"
+  chmod 644 "$sqlite_path"
   print_info "SQLite setup complete for webapp '$app_name'"
   print_info "Database: ${app_name}.sqlite | Location: ${sqlite_data_dir}/${app_name}.sqlite"
 }
@@ -1612,6 +1622,7 @@ main() {
   create_tomee_config
   start_container
   wait_for_tomee
+  create_sqlite_directories
   install_dev_tools
   configure_git
   configure_shell_aliases

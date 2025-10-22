@@ -62,8 +62,10 @@ make deploy              # Full build + deploy
 make install             # First-time setup (creates DB + deploys) - for cloned projects
 make clean               # Clean build artifacts + remove from TomEE
 make test                # Run unit tests
+make db                  # Initialize database with database/{artifactId}.sql
 make dbcli               # Connect to database
 make dbcli f=file.sql    # Execute SQL file
+make dbcli f=data.csv    # Load CSV into table (filename = table name)
 make contextview         # Add ContextView add-on to webapp
 ```
 
@@ -98,6 +100,8 @@ make contextview         # Add ContextView add-on to webapp
 │   ├── pom.xml
 │   ├── Makefile
 │   ├── .env                # Database config (if applicable)
+│   ├── database/           # Database initialization files (webapp with database)
+│   │   └── {artifactId}.sql  # Database-specific SQL file
 │   └── src/
 ├── webapps/                # Deployed WAR files (TomEE auto-extracts)
 ├── conf/                   # TomEE configuration
@@ -113,8 +117,38 @@ All database-enabled projects use **JNDI datasource** as the standard pattern:
 - **Configuration**: `META-INF/context-dev.xml` (dev), `META-INF/context-prod.xml` (prod)
 - **Credentials**: Project's `.env` file
 - **Build profiles**: `-P dev` (reloadable=true) or `-P prod` (reloadable=false)
+- **Initialization**: `database/{artifactId}.sql` - Database-specific SQL file (automatically created based on selected database type)
 
 **Pattern**: Prefer JDBC over external ORMs to reduce dependency bloat. Use prepared statements and explicit transaction management.
+
+### Database File Generation
+
+When creating a webapp with database support (e.g., `make app id=com.example.myapp db=postgres`):
+- Only the SQL file for the selected database type is generated
+- File is automatically named `database/{artifactId}.sql` (e.g., `database/myapp.sql`)
+- Other database-specific SQL files are removed during project creation
+- The `make db` target executes this file to initialize the database
+
+### Database Storage Locations
+
+**PostgreSQL & MariaDB:**
+- Run in separate Docker containers with named volumes
+- Data persisted in Docker volumes: `tomeex-postgres-data`, `tomeex-mariadb-data`
+- Accessible from TomEE container via Docker network
+
+**SQLite:**
+- Runs within TomEE container (no separate container needed)
+- Database location: `/var/lib/tomee/sqlite/{artifactId}.sqlite`
+- Follows Linux FHS (Filesystem Hierarchy Standard)
+- Compatible with all Linux distributions (Ubuntu, Alpine, etc.)
+- Production: mount `/var/lib/tomee/sqlite/` as volume on host
+
+**Production Deployment (SQLite):**
+```bash
+docker run -v /data/tomee-sqlite:/var/lib/tomee/sqlite tomee:9-jre17-plume
+```
+
+This ensures SQLite databases are portable and properly isolated from application code.
 
 ## Maven Archetypes
 
@@ -130,6 +164,32 @@ Available archetypes:
 5. `tomeex-addon-contextview` - JSON-driven UI framework (add-on only)
 
 **Archetype development**: Edit in `archetypes/{name}/`, rebuild with `make archetypes`, test by generating a new project. Uses Velocity templates with variables like `${groupId}`, `${artifactId}`.
+
+### Standardized Makefile Targets
+
+All project Makefiles (both webapps and libraries) have a standardized set of targets:
+
+**Common Targets (all projects):**
+- `help` - Display help message with all available targets
+- `build` - Compile and package the project
+- `deploy` - Deploy to TomEE (webapps) or Maven local repo (libraries)
+- `clean` - Remove build artifacts and deployment
+- `test` - Run unit tests
+- `install` - First-time setup: clean + db + build + deploy
+- `push m="message"` - Git commit and push
+- `pull` - Git pull from remote repository
+
+**Database Targets (webapps with database):**
+- `db` - Initialize database (executes `database/{artifactId}.sql`)
+- `dbcli` - Connect to database CLI
+- `dbcli f=file.sql` - Execute SQL file
+- `dbcli f=data.csv` - Load CSV into table
+
+**Database Targets (libraries):**
+- `db` - Shows error message (libraries don't initialize databases)
+- `dbcli` - Shows error message (libraries don't access databases directly)
+
+**Note**: The default target (`make` without arguments) executes `build` + `deploy`.
 
 ## ContextView Add-on
 
@@ -179,22 +239,40 @@ make install                   # First-time setup (creates DB + deploys)
 make                           # Subsequent deployments
 ```
 
+**The `make install` target**:
+1. Cleans any existing build artifacts
+2. Initializes the database (executes `database/{artifactId}.sql`)
+3. Builds the project
+4. Deploys to TomEE
+
+This is the recommended command for first-time setup of cloned projects.
+
 ## Key Files to Check
 
 When working with projects:
 - `pom.xml` - Maven config, dependencies, build profiles
-- `Makefile` - Build and deployment commands
+- `Makefile` - Build and deployment commands (standardized across all projects)
 - `.env` - Database configuration (project-level)
+- `database/{artifactId}.sql` - Database initialization script (webapps with database)
 - `src/main/webapp/WEB-INF/web.xml` - Servlet configuration
 - `src/main/webapp/META-INF/context-dev.xml` - JNDI datasource (dev)
 - `src/main/resources/META-INF/context.xml` - Packaged with WAR
 
 ## URLs and Access
 
+**External Access (from host machine):**
 - **TomEE Manager**: http://localhost:9292/manager/html
 - **Host Manager**: http://localhost:9292/host-manager/html
 - **Deployed Apps**: http://localhost:9292/{artifactId}
-- **Default credentials** (from `.env`): `admin/secret`, `manager/secret`
+
+**Internal Access (from container):**
+- **TomEE Manager**: http://localhost:8080/manager/html
+- **Host Manager**: http://localhost:8080/host-manager/html
+- **Deployed Apps**: http://localhost:8080/{artifactId}
+
+**Default credentials** (from `.env`): `admin/secret`, `manager/secret`
+
+**Important**: Use `localhost:8080` when testing with `curl` inside the container, `localhost:9292` when accessing from the host machine.
 
 ## Docker Network
 
