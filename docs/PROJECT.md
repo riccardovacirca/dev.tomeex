@@ -138,14 +138,14 @@ When creating a webapp with database support (e.g., `make app id=com.example.mya
 
 **SQLite:**
 - Runs within TomEE container (no separate container needed)
-- Database location: `/var/lib/tomee/sqlite/{artifactId}.sqlite`
+- Database location: `/var/lib/tomeex/data/{artifactId}.db`
 - Follows Linux FHS (Filesystem Hierarchy Standard)
 - Compatible with all Linux distributions (Ubuntu, Alpine, etc.)
-- Production: mount `/var/lib/tomee/sqlite/` as volume on host
+- Production: mount `/var/lib/tomeex/data/` as volume on host
 
 **Production Deployment (SQLite):**
 ```bash
-docker run -v /data/tomee-sqlite:/var/lib/tomee/sqlite tomee:9-jre17-plume
+docker run -v /data/tomeex:/var/lib/tomeex/data tomee:9-jre17-plume
 ```
 
 This ensures SQLite databases are portable and properly isolated from application code.

@@ -104,7 +104,7 @@ MARIADB_PORT=13306
 MARIADB_ROOT_PASSWORD=secret
 
 # SQLite Configuration (optional)
-SQLITE_DATA_DIR=sqlite-data
+SQLITE_DATA_DIR=/var/lib/tomeex/data
 EOF
 }
 
@@ -802,14 +802,14 @@ EOF
         cat >> "$env_file" << EOF
 # Database Configuration
 DB_TYPE=sqlite
-DB_FILE=${app_name}.sqlite
-DB_PATH=${sqlite_data_dir}/${app_name}.sqlite
+DB_FILE=${app_name}.db
+DB_PATH=${sqlite_data_dir}/${app_name}.db
 
 # JDBC Connection String
-JDBC_URL=jdbc:sqlite:${sqlite_data_dir}/${app_name}.sqlite
+JDBC_URL=jdbc:sqlite:${sqlite_data_dir}/${app_name}.db
 
 # Local File System Path
-LOCAL_DB_PATH=${sqlite_data_dir}/${app_name}.sqlite
+LOCAL_DB_PATH=${sqlite_data_dir}/${app_name}.db
 EOF
         ;;
       *)
@@ -946,11 +946,11 @@ create_sqlite_webapp_database() {
   mkdir -p "${sqlite_data_dir}"
   chmod 755 "${sqlite_data_dir}"
   # Create database file
-  local sqlite_path="${sqlite_data_dir}/${app_name}.sqlite"
+  local sqlite_path="${sqlite_data_dir}/${app_name}.db"
   touch "$sqlite_path"
   chmod 644 "$sqlite_path"
   print_info "SQLite setup complete for webapp '$app_name'"
-  print_info "Database: ${app_name}.sqlite | Location: ${sqlite_data_dir}/${app_name}.sqlite"
+  print_info "Database: ${app_name}.db | Location: ${sqlite_data_dir}/${app_name}.db"
 }
 
 remove_postgres_webapp_database() {
@@ -1007,11 +1007,11 @@ remove_sqlite_webapp_database() {
   local sqlite_data_dir=$(grep SQLITE_DATA_DIR .env | cut -d= -f2)
   print_info "Removing SQLite database for webapp '$app_name'..."
   # Remove SQLite database file
-  if [ -f "${sqlite_data_dir}/${app_name}.sqlite" ]; then
-    rm -f "${sqlite_data_dir}/${app_name}.sqlite"
-    print_info "Removed database file: ${sqlite_data_dir}/${app_name}.sqlite"
+  if [ -f "${sqlite_data_dir}/${app_name}.db" ]; then
+    rm -f "${sqlite_data_dir}/${app_name}.db"
+    print_info "Removed database file: ${sqlite_data_dir}/${app_name}.db"
   else
-    print_info "Database file not found: ${sqlite_data_dir}/${app_name}.sqlite"
+    print_info "Database file not found: ${sqlite_data_dir}/${app_name}.db"
   fi
   print_info "SQLite cleanup complete for webapp '$app_name'"
 }
@@ -1055,7 +1055,7 @@ initialize_database_data() {
 
     sqlite)
       local sqlite_data_dir=$(grep SQLITE_DATA_DIR .env | cut -d= -f2)
-      local sqlite_path="${sqlite_data_dir}/${app_name}.sqlite"
+      local sqlite_path="${sqlite_data_dir}/${app_name}.db"
       if sqlite3 "$sqlite_path" < "$sql_file" 2>/dev/null; then
         print_info "SQLite initial data loaded successfully"
       else

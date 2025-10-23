@@ -32,6 +32,6 @@
               username=""
               password=""
               driverClassName="org.sqlite.JDBC"
-              url="jdbc:sqlite:/usr/local/tomee/data/${artifactId}.db"/>
+              url="jdbc:sqlite:/var/lib/tomeex/data/${artifactId}.db"/>
 #end
 </Context>

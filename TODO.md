@@ -1,4 +1,27 @@
 
+- [FIXED] La posizione del file di database sqlite nel sistema sia in sviluppo
+          che in produzione dovrebbe essere:
+          /var/lib/tomeex/data/<artifact_name>.db.
+          La cartella /var/lib/tomeex/data se non esiste dovrebbe essere creata
+          al momento della installazione principale dopo aver runnato il
+          container. Questa cartella dovrebbe essere anche montata in un volume
+          mappato sull'host per mantenere la persistenza dei dati.
+          Questa strategia va usata anche per la release della applicazione.
+          Fix: Implementato il nuovo path standard /var/lib/tomeex/data/ con:
+          - Aggiornato .env generale (SQLITE_DATA_DIR=/var/lib/tomeex/data)
+          - Aggiornato install.sh (template .env e funzioni database)
+          - Aggiornati archetipi context-dev.xml e context-prod.xml
+          - Cambiata estensione da .sqlite a .db per uniformità
+          - Aggiornato install.sh.template per release produzione (VOLUME, mount path)
+          - Migrato database esistente da /var/lib/tomee/sqlite/ al nuovo path
+          - Aggiornato progetto dev.tomeex.qd (.env e tutti i context.xml)
+          - Aggiornata documentazione docs/PROJECT.md (sincronizzato con CLAUDE.md)
+          - Rebuild di tutti gli archetipi completato (2x)
+          - Test creazione nuovo database: PASSED
+          - Rimossa directory obsoleta /var/lib/tomee/sqlite/
+          Risultato: Tutti i database SQLite ora in /var/lib/tomeex/data/ con
+          estensione .db, pronti per mount in produzione con Docker volume
+
 - [FIXED] Verificare che la configurazione git del file .env generale venga
           usata globalmente
           Fix: La configurazione git è già implementata correttamente in
@@ -6,7 +29,7 @@
 
 - [FIXED] La generazione di una nuva app con database mediante il makefile
           principale attualmente genera dei file sql compatibili con tutti i
-          database e conteneti il codice pee creare tabelle di gestione dei log.
+          database e contenenti il codice per creare tabelle di gestione dei log.
           Dal momento che la generazione di una app con db prevede la specifica
           del tipo di server di database (postgres, mariadb, sqlite) generare un
           solo file sql per il server selezionato e denominare il file con il

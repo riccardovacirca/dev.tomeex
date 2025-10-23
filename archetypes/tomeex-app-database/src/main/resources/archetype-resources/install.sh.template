@@ -137,7 +137,8 @@ cat > "$DOCKERFILE" <<DOCKERFILE_END
 FROM $BASE_IMAGE
 RUN rm -rf /usr/local/tomee/webapps/ROOT /usr/local/tomee/webapps/ROOT.war
 COPY $WAR_BASENAME /usr/local/tomee/webapps/ROOT.war
-VOLUME /usr/local/tomee/data
+RUN mkdir -p /var/lib/tomeex/data && chmod 755 /var/lib/tomeex/data
+VOLUME /var/lib/tomeex/data
 DOCKERFILE_END
 
 # -----------------------------
@@ -200,7 +201,7 @@ docker run -d \
   --name "$CONTAINER_NAME" \
   $NETWORK_ARG \
   -p "$HOST_PORT":8080 \
-  -v "$HOST_VOLUME":/usr/local/tomee/data \
+  -v "$HOST_VOLUME":/var/lib/tomeex/data \
   --restart=unless-stopped \
   "$CONTAINER_NAME"
 
@@ -209,7 +210,7 @@ echo "✓ Deployment completato con successo!"
 echo ""
 echo "Application URL: http://localhost:$HOST_PORT/"
 echo "Container name:  $CONTAINER_NAME"
-echo "Volume montato:  $HOST_VOLUME -> /usr/local/tomee/data"
+echo "Volume montato:  $HOST_VOLUME -> /var/lib/tomeex/data"
 echo ""
 echo "Attendere 10-30 secondi per il deployment dell'applicazione"
 echo ""
