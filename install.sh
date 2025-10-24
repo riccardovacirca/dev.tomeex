@@ -306,7 +306,7 @@ install_dev_tools() {
   if docker exec "${CONTAINER_NAME}" sh -c "
     apt-get update -qq > /dev/null 2>&1 && \
     apt-get install -y --no-install-recommends \
-      make openjdk-17-jdk-headless git maven wget curl rsync unzip postgresql-client default-mysql-client sqlite3 > /dev/null 2>&1 && \
+      make openjdk-17-jdk-headless git maven wget curl rsync unzip postgresql-client default-mysql-client sqlite3 nano > /dev/null 2>&1 && \
     echo 'export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64' >> /root/.bashrc && \
     apt-get clean > /dev/null 2>&1 && \
     rm -rf /var/lib/apt/lists/*
@@ -342,13 +342,16 @@ configure_shell_aliases() {
   if docker exec "${CONTAINER_NAME}" grep -q "alias cls=" /root/.bashrc 2>/dev/null; then
     return 0
   fi
-  # Add cls alias to .bashrc
+  # Add cls alias and timezone configuration to .bashrc
   docker exec "${CONTAINER_NAME}" sh -c "cat >> /root/.bashrc << 'EOF'
 # Custom aliases
 alias cls=clear
+
+# Timezone configuration
+export TZ=Europe/Rome
 EOF
 "
-  print_info "Shell aliases configured successfully"
+  print_info "Shell aliases and timezone configured successfully"
 }
 
 pull_postgres_image() {
